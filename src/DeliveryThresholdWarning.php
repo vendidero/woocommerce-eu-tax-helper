@@ -1,6 +1,6 @@
 <?php
 
-namespace Vendidero\OSS;
+namespace Vendidero\TaxHelper;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -11,7 +11,7 @@ class DeliveryThresholdWarning extends AdminNote {
 			array(
 				array(
 					'target'     => '',
-					'title'      => _x( 'See details', 'oss', 'oss-woocommerce' ),
+					'title'      => _x( 'See details', 'oss', 'woocommerce-eu-tax-helper' ),
 					'url'        => Admin::get_settings_url(),
 					'is_primary' => true,
 				),

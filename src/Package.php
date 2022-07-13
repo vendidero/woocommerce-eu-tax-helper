@@ -1,6 +1,6 @@
 <?php
 
-namespace Vendidero\OSS;
+namespace Vendidero\TaxHelper;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -14,13 +14,17 @@ class Package {
 	 *
 	 * @var string
 	 */
-	const VERSION = '1.0.2';
+	const VERSION = '1.0.0';
 
 	/**
 	 * Init the package
 	 */
 	public static function init() {
-		self::define_constant( 'WOOCOMMERCE_EU_OSS_HELPER_VERSION', self::get_version() );
+		if ( defined( 'WOOCOMMERCE_EU_TAX_HELPER_VERSION' ) ) {
+			return;
+		}
+
+		self::define_constant( 'WOOCOMMERCE_EU_TAX_HELPER_VERSION', self::get_version() );
 		self::observe();
 
 		if ( is_admin() ) {
@@ -61,8 +65,8 @@ class Package {
 			add_action( 'woocommerce_email_classes', array( __CLASS__, 'register_emails' ), 10 );
 		}
 
-		add_action( 'wc_admin_daily', array( '\Vendidero\OSS\Notes', 'queue_wc_admin_notes' ) );
-		add_action( 'woocommerce_note_updated', array( '\Vendidero\OSS\Notes', 'on_wc_admin_note_update' ) );
+		add_action( 'wc_admin_daily', array( '\Vendidero\TaxHelper\Notes', 'queue_wc_admin_notes' ) );
+		add_action( 'woocommerce_note_updated', array( '\Vendidero\TaxHelper\Notes', 'on_wc_admin_note_update' ) );
 	}
 
 	public static function cleanup() {
@@ -155,10 +159,6 @@ class Package {
 				}
 			}
 		}
-	}
-
-	public static function oss_procedure_is_enabled() {
-		return apply_filters( 'oss_woocommerce_is_oss_enabled', false );
 	}
 
 	public static function enable_auto_observer() {
@@ -325,7 +325,7 @@ class Package {
 
 	public static function get_report_title( $id ) {
 		$args  = self::get_report_data( $id );
-		$title = _x( 'Report', 'oss', 'oss-woocommerce' );
+		$title = _x( 'Report', 'oss', 'woocommerce-eu-tax-helper' );
 
 		if ( 'quarterly' === $args['type'] ) {
 			$date_start = $args['date_start'];
@@ -340,26 +340,26 @@ class Package {
 				$quarter = 4;
 			}
 
-			$title = sprintf( _x( 'Q%1$s/%2$s', 'oss', 'oss-woocommerce' ), $quarter, $date_start->date_i18n( 'Y' ) );
+			$title = sprintf( _x( 'Q%1$s/%2$s', 'oss', 'woocommerce-eu-tax-helper' ), $quarter, $date_start->date_i18n( 'Y' ) );
 		} elseif ( 'monthly' === $args['type'] ) {
 			$date_start = $args['date_start'];
 			$month_num  = $date_start->date_i18n( 'm' );
 
-			$title = sprintf( _x( '%1$s/%2$s', 'oss', 'oss-woocommerce' ), $month_num, $date_start->date_i18n( 'Y' ) );
+			$title = sprintf( _x( '%1$s/%2$s', 'oss', 'woocommerce-eu-tax-helper' ), $month_num, $date_start->date_i18n( 'Y' ) );
 		} elseif ( 'yearly' === $args['type'] ) {
 			$date_start = $args['date_start'];
 
-			$title = sprintf( _x( '%1$s', 'oss', 'oss-woocommerce' ), $date_start->date_i18n( 'Y' ) ); // phpcs:ignore WordPress.WP.I18n.NoEmptyStrings
+			$title = sprintf( _x( '%1$s', 'oss', 'woocommerce-eu-tax-helper' ), $date_start->date_i18n( 'Y' ) ); // phpcs:ignore WordPress.WP.I18n.NoEmptyStrings
 		} elseif ( 'custom' === $args['type'] ) {
 			$date_start = $args['date_start'];
 			$date_end   = $args['date_end'];
 
-			$title = sprintf( _x( '%1$s - %2$s', 'oss', 'oss-woocommerce' ), $date_start->date_i18n( 'Y-m-d' ), $date_end->date_i18n( 'Y-m-d' ) );
+			$title = sprintf( _x( '%1$s - %2$s', 'oss', 'woocommerce-eu-tax-helper' ), $date_start->date_i18n( 'Y-m-d' ), $date_end->date_i18n( 'Y-m-d' ) );
 		} elseif ( 'observer' === $args['type'] ) {
 			$date_start = $args['date_start'];
 			$date_end   = $args['date_end'];
 
-			$title = sprintf( _x( 'Observer %1$s', 'oss', 'oss-woocommerce' ), $date_start->date_i18n( 'Y' ) );
+			$title = sprintf( _x( 'Observer %1$s', 'oss', 'woocommerce-eu-tax-helper' ), $date_start->date_i18n( 'Y' ) );
 		}
 
 		return $title;
@@ -475,7 +475,7 @@ class Package {
 
 	public static function register_emails( $emails ) {
 		$mails = array(
-			'\Vendidero\OSS\DeliveryThresholdEmailNotification',
+			'\Vendidero\TaxHelper\DeliveryThresholdEmailNotification',
 		);
 
 		foreach ( $mails as $mail ) {
@@ -511,7 +511,7 @@ class Package {
 		if ( self::observer_report_needs_notification() ) {
 			if ( 'yes' !== get_option( 'oss_woocommerce_notification_sent_' . $observer_report->get_date_start()->format( 'Y' ) ) ) {
 				$mails = WC()->mailer()->get_emails();
-				$mail  = self::sanitize_email_class( '\Vendidero\OSS\DeliveryThresholdEmailNotification' );
+				$mail  = self::sanitize_email_class( '\Vendidero\TaxHelper\DeliveryThresholdEmailNotification' );
 
 				if ( isset( $mails[ $mail ] ) ) {
 					$mails[ $mail ]->trigger( $observer_report );
@@ -586,14 +586,14 @@ class Package {
 
 	public static function get_available_report_types( $include_observer = false ) {
 		$types = array(
-			'quarterly' => _x( 'Quarterly', 'oss', 'oss-woocommerce' ),
-			'yearly'    => _x( 'Yearly', 'oss', 'oss-woocommerce' ),
-			'monthly'   => _x( 'Monthly', 'oss', 'oss-woocommerce' ),
-			'custom'    => _x( 'Custom', 'oss', 'oss-woocommerce' ),
+			'quarterly' => _x( 'Quarterly', 'oss', 'woocommerce-eu-tax-helper' ),
+			'yearly'    => _x( 'Yearly', 'oss', 'woocommerce-eu-tax-helper' ),
+			'monthly'   => _x( 'Monthly', 'oss', 'woocommerce-eu-tax-helper' ),
+			'custom'    => _x( 'Custom', 'oss', 'woocommerce-eu-tax-helper' ),
 		);
 
 		if ( $include_observer ) {
-			$types['observer'] = _x( 'Observer', 'oss', 'oss-woocommerce' );
+			$types['observer'] = _x( 'Observer', 'oss', 'woocommerce-eu-tax-helper' );
 		}
 
 		return $types;
@@ -607,9 +607,9 @@ class Package {
 
 	public static function get_report_statuses() {
 		return array(
-			'pending'   => _x( 'Pending', 'oss', 'oss-woocommerce' ),
-			'completed' => _x( 'Completed', 'oss', 'oss-woocommerce' ),
-			'failed'    => _x( 'Failed', 'oss', 'oss-woocommerce' ),
+			'pending'   => _x( 'Pending', 'oss', 'woocommerce-eu-tax-helper' ),
+			'completed' => _x( 'Completed', 'oss', 'woocommerce-eu-tax-helper' ),
+			'failed'    => _x( 'Failed', 'oss', 'woocommerce-eu-tax-helper' ),
 		);
 	}
 
@@ -630,6 +630,15 @@ class Package {
 	 */
 	public static function get_version() {
 		return self::VERSION;
+	}
+
+	/**
+	 * Return the path to the package.
+	 *
+	 * @return string
+	 */
+	public static function get_path() {
+		return dirname( __DIR__ );
 	}
 
 	private static function define_constant( $name, $value ) {

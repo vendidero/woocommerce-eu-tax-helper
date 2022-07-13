@@ -1,6 +1,6 @@
 <?php
 
-namespace Vendidero\OSS;
+namespace Vendidero\TaxHelper;
 
 use Automattic\WooCommerce\Admin\Notes\Note;
 
@@ -101,7 +101,7 @@ class Notes {
 	 * @return AdminNote[]
 	 */
 	public static function get_notes() {
-		$notes = array( 'Vendidero\OSS\DeliveryThresholdWarning' );
+		$notes = array( 'Vendidero\TaxHelper\DeliveryThresholdWarning' );
 
 		if ( ! Package::enable_auto_observer() ) {
 			$notes = array();

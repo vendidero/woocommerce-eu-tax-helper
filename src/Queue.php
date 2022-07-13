@@ -1,6 +1,6 @@
 <?php
 
-namespace Vendidero\OSS;
+namespace Vendidero\TaxHelper;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -37,7 +37,7 @@ class Queue {
 
 		$report = $generator->start();
 
-		if ( is_a( $report, '\Vendidero\OSS\Report' ) && $report->exists() ) {
+		if ( is_a( $report, '\Vendidero\TaxHelper\Report' ) && $report->exists() ) {
 			Package::log( sprintf( 'Starting new %1$s', $report->get_title() ) );
 			Package::extended_log( sprintf( 'Default report arguments: %s', wc_print_r( $queue_args, true ) ) );
 
@@ -323,7 +323,7 @@ class Queue {
 		$report = $generator->complete();
 		$status = 'failed';
 
-		if ( is_a( $report, '\Vendidero\OSS\Report' ) && $report->exists() ) {
+		if ( is_a( $report, '\Vendidero\TaxHelper\Report' ) && $report->exists() ) {
 			$status = 'completed';
 		}
 

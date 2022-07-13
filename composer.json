@@ -26,7 +26,7 @@
   },
   "autoload": {
     "psr-4": {
-      "Vendidero\\OSS\\": "src/"
+      "Vendidero\\TaxHelper\\": "src/"
     }
   },
   "scripts": {

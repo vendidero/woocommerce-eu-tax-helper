@@ -1,6 +1,6 @@
 <?php
 
-namespace Vendidero\OSS;
+namespace Vendidero\TaxHelper;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -114,6 +114,23 @@ class Tax {
 		return is_admin() && current_user_can( 'edit_shop_orders' ) && self::is_admin_order_ajax_request();
 	}
 
+	public static function is_vat_exempt() {
+		$is_admin_order_request = self::is_admin_order_request();
+		$is_vat_exempt          = false;
+
+		if ( $is_admin_order_request ) {
+			if ( $order = wc_get_order( absint( $_POST['order_id'] ) ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotValidated
+				$is_vat_exempt = apply_filters( 'woocommerce_order_is_vat_exempt', 'yes' === $order->get_meta( 'is_vat_exempt' ), $order );
+			}
+		} else {
+			if ( WC()->customer && WC()->customer->is_vat_exempt() ) {
+				$is_vat_exempt = true;
+			}
+		}
+
+		return $is_vat_exempt;
+	}
+
 	public static function get_base_country() {
 		if ( WC()->countries ) {
 			return WC()->countries->get_base_country();
@@ -194,10 +211,10 @@ class Tax {
 						\WC_Tax::create_tax_class( __( 'Reduced rate', 'woocommerce' ) ); // phpcs:ignore WordPress.WP.I18n.TextDomainMismatch
 						break;
 					case 'greater-reduced':
-						\WC_Tax::create_tax_class( _x( 'Greater reduced rate', 'oss', 'oss-woocommerce' ) );
+						\WC_Tax::create_tax_class( _x( 'Greater reduced rate', 'oss', 'woocommerce-eu-tax-helper' ) );
 						break;
 					case 'super-reduced':
-						\WC_Tax::create_tax_class( _x( 'Super reduced rate', 'oss', 'oss-woocommerce' ) );
+						\WC_Tax::create_tax_class( _x( 'Super reduced rate', 'oss', 'woocommerce-eu-tax-helper' ) );
 						break;
 				}
 			}
@@ -354,11 +371,11 @@ class Tax {
 
 				if ( ! $greater_reduced_tax_class && strstr( $slug, sanitize_title( 'Greater reduced rate' ) ) ) {
 					$greater_reduced_tax_class = $slug;
-				} elseif ( ! $greater_reduced_tax_class && strstr( $slug, sanitize_title( _x( 'Greater reduced rate', 'oss', 'oss-woocommerce' ) ) ) ) {
+				} elseif ( ! $greater_reduced_tax_class && strstr( $slug, sanitize_title( _x( 'Greater reduced rate', 'oss', 'woocommerce-eu-tax-helper' ) ) ) ) {
 					$greater_reduced_tax_class = $slug;
 				} elseif ( ! $super_reduced_tax_class && strstr( $slug, sanitize_title( 'Super reduced rate' ) ) ) {
 					$super_reduced_tax_class = $slug;
-				} elseif ( ! $super_reduced_tax_class && strstr( $slug, sanitize_title( _x( 'Super reduced rate', 'oss', 'oss-woocommerce' ) ) ) ) {
+				} elseif ( ! $super_reduced_tax_class && strstr( $slug, sanitize_title( _x( 'Super reduced rate', 'oss', 'woocommerce-eu-tax-helper' ) ) ) ) {
 					$super_reduced_tax_class = $slug;
 				} elseif ( ! $reduced_tax_class && strstr( $slug, sanitize_title( 'Reduced rate' ) ) ) {
 					$reduced_tax_class = $slug;
@@ -568,14 +585,14 @@ class Tax {
 					'postcode' => array( '90*', '91*', '92*', '93*', '94*' ),
 					'standard' => 22,
 					'reduced'  => array( 5, 12 ),
-					'name'     => _x( 'Madeira', 'oss', 'oss-woocommerce' ),
+					'name'     => _x( 'Madeira', 'oss', 'woocommerce-eu-tax-helper' ),
 				),
 				array(
 					// Acores
 					'postcode' => array( '95*', '96*', '97*', '98*', '99*' ),
 					'standard' => 18,
 					'reduced'  => array( 4, 9 ),
-					'name'     => _x( 'Acores', 'oss', 'oss-woocommerce' ),
+					'name'     => _x( 'Acores', 'oss', 'woocommerce-eu-tax-helper' ),
 				),
 				array(
 					'standard' => 23,
@@ -611,7 +628,7 @@ class Tax {
 					'standard' => 20,
 					'reduced'  => array( 5 ),
 					'postcode' => array( 'BT*' ),
-					'name'     => _x( 'Northern Ireland', 'oss', 'oss-woocommerce' ),
+					'name'     => _x( 'Northern Ireland', 'oss', 'woocommerce-eu-tax-helper' ),
 				),
 			),
 		);
@@ -624,7 +641,7 @@ class Tax {
 					'postcode'  => $exempt_postcodes,
 					'standard'  => 0,
 					'reduced'   => count( $default_rate['reduced'] ) > 1 ? array( 0, 0 ) : array( 0 ),
-					'name'      => _x( 'Exempt', 'oss-tax-rate-import', 'oss-woocommerce' ),
+					'name'      => _x( 'Exempt', 'oss-tax-rate-import', 'woocommerce-eu-tax-helper' ),
 					'is_exempt' => true,
 				);
 
@@ -693,7 +710,7 @@ class Tax {
 
 			$vat_rate = wc_format_decimal( $rate['rate'], false, true );
 
-			$tax_rate_name = apply_filters( 'oss_import_tax_rate_name', sprintf( _x( 'VAT %1$s %% %2$s', 'oss-tax-rate-import', 'oss-woocommerce' ), $vat_rate, $vat_desc ), $rate['rate'], $iso, $tax_class, $rate );
+			$tax_rate_name = apply_filters( 'oss_import_tax_rate_name', sprintf( _x( 'VAT %1$s %% %2$s', 'oss-tax-rate-import', 'woocommerce-eu-tax-helper' ), $vat_rate, $vat_desc ), $rate['rate'], $iso, $tax_class, $rate );
 
 			$_tax_rate = array(
 				'tax_rate_country'  => $iso,

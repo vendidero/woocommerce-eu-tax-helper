@@ -1,6 +1,6 @@
 <?php
 
-namespace Vendidero\OSS;
+namespace Vendidero\TaxHelper;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -43,7 +43,7 @@ class AdminNote {
 		return array(
 			array(
 				'target'     => '',
-				'title'      => _x( 'Dismiss', 'oss', 'oss-woocommerce' ),
+				'title'      => _x( 'Dismiss', 'oss', 'woocommerce-eu-tax-helper' ),
 				'url'        => static::get_dismiss_url(),
 				'is_primary' => false,
 			),

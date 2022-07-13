@@ -1,6 +1,6 @@
 <?php
 
-namespace Vendidero\OSS;
+namespace Vendidero\TaxHelper;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -253,7 +253,7 @@ class AsyncReportGenerator {
 
 			return true;
 		} else {
-			return new \WP_Error( 'empty', _x( 'No orders found.', 'oss', 'oss-woocommerce' ) );
+			return new \WP_Error( 'empty', _x( 'No orders found.', 'oss', 'woocommerce-eu-tax-helper' ) );
 		}
 	}
 

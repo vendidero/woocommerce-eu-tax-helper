@@ -1,6 +1,6 @@
 <?php
 
-namespace Vendidero\OSS;
+namespace Vendidero\TaxHelper;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -13,7 +13,6 @@ class Admin {
 			add_action( 'admin_post_oss_' . $action . '_report', array( __CLASS__, $action . '_report' ) );
 		}
 
-		add_action( 'admin_post_oss_switch_procedure', array( __CLASS__, 'switch_procedure' ) );
 		add_action( 'admin_post_oss_init_observer', array( __CLASS__, 'init_observer' ) );
 	}
 
@@ -22,11 +21,11 @@ class Admin {
 	}
 
 	public static function get_threshold_notice_content() {
-		return sprintf( _x( 'Seems like you have reached (or are close to reaching) the delivery threshold for the current year. Please make sure to check the <a href="%s" target="_blank">report details</a> and take action in case necessary.', 'oss', 'oss-woocommerce' ), esc_url( Package::get_observer_report()->get_url() ) );
+		return sprintf( _x( 'Seems like you have reached (or are close to reaching) the delivery threshold for the current year. Please make sure to check the <a href="%s" target="_blank">report details</a> and take action in case necessary.', 'oss', 'woocommerce-eu-tax-helper' ), esc_url( Package::get_observer_report()->get_url() ) );
 	}
 
 	public static function get_threshold_notice_title() {
-		return _x( 'Delivery threshold reached (OSS)', 'oss', 'oss-woocommerce' );
+		return _x( 'Delivery threshold reached (OSS)', 'oss', 'woocommerce-eu-tax-helper' );
 	}
 
 	public static function init_observer() {
@@ -37,32 +36,6 @@ class Admin {
 		if ( ! Queue::get_running_observer() ) {
 			Package::update_observer_report();
 		}
-
-		wp_safe_redirect( wp_get_referer() );
-		exit();
-	}
-
-	public static function switch_procedure() {
-		if ( ! current_user_can( 'manage_woocommerce' ) || ! wp_verify_nonce( isset( $_GET['_wpnonce'] ) ? wp_unslash( $_GET['_wpnonce'] ) : '', 'oss_switch_procedure' ) ) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-			wp_die();
-		}
-
-		if ( Package::oss_procedure_is_enabled() ) {
-			update_option( 'oss_use_oss_procedure', 'no' );
-
-			Tax::import_default_tax_rates();
-
-			do_action( 'woocommerce_oss_disabled_oss_procedure' );
-		} else {
-			update_option( 'woocommerce_tax_based_on', 'shipping' );
-			update_option( 'oss_use_oss_procedure', 'yes' );
-
-			Tax::import_oss_tax_rates();
-
-			do_action( 'woocommerce_oss_enabled_oss_procedure' );
-		}
-
-		do_action( 'woocommerce_oss_switched_oss_procedure_status' );
 
 		wp_safe_redirect( wp_get_referer() );
 		exit();
