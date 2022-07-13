@@ -1,0 +1,47 @@
+{
+  "name": "vendidero/woocommerce-eu-oss-helper",
+  "description": "OSS EU helper for WooCommerce",
+  "homepage": "https://vendidero.de/",
+  "type": "library",
+  "license": "GPL-3.0-or-later",
+  "prefer-stable": true,
+  "prefer-dist": true,
+  "minimum-stability": "dev",
+  "require": {
+    "php": ">=5.6|>=7.0"
+  },
+  "require-dev": {
+    "myclabs/deep-copy": "^1.7.0",
+    "phpunit/phpunit": "7.5.14",
+    "yoast/phpunit-polyfills": "^1.0",
+    "woocommerce/woocommerce-sniffs": "^0.1.3"
+  },
+  "config": {
+    "optimize-autoloader": true,
+    "allow-plugins": true,
+    "platform": {
+      "php": "7.2"
+    },
+    "preferred-install": "dist",
+    "sort-packages": true
+  },
+  "autoload": {
+    "psr-4": {
+      "Vendidero\\OSS\\": "src/"
+    }
+  },
+  "scripts": {
+    "test": [
+      "phpunit"
+    ],
+    "phpcs": [
+      "phpcs -s -p"
+    ],
+    "phpcs-pre-commit": [
+      "phpcs -s -p -n"
+    ],
+    "phpcbf": [
+      "phpcbf -p"
+    ]
+  }
+}
