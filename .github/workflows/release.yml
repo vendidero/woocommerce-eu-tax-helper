@@ -50,4 +50,4 @@ jobs:
           prerelease: false
           commitish: release/v${{ github.event.inputs.versionName }}
       - name: Remove branch
-        run: git branch -D release/v${{ github.event.inputs.versionName }} && git push origin --delete release/v${{ github.event.inputs.versionName }}
+        run: git checkout main && git branch -D release/v${{ github.event.inputs.versionName }} && git push origin --delete release/v${{ github.event.inputs.versionName }}
