@@ -1,5 +1,5 @@
 {
-  "name": "vendidero/woocommerce-eu-oss-helper",
+  "name": "vendidero/woocommerce-eu-tax-helper",
   "description": "OSS EU helper for WooCommerce",
   "homepage": "https://vendidero.de/",
   "type": "library",
@@ -7,8 +7,7 @@
   "prefer-stable": true,
   "minimum-stability": "dev",
   "require": {
-    "php": ">=5.6|>=7.0",
-    "composer/installers": "^1.9.0"
+    "php": ">=5.6|>=7.0"
   },
   "require-dev": {
     "myclabs/deep-copy": "^1.7.0",
