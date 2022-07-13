@@ -20,7 +20,7 @@ class Package {
 	 * Init the package
 	 */
 	public static function init() {
-		if ( defined( 'WOOCOMMERCE_EU_TAX_HELPER_VERSION' ) ) {
+		if ( defined( 'WOOCOMMERCE_EU_TAX_HELPER_VERSION' ) || ! self::has_dependencies() ) {
 			return;
 		}
 
@@ -30,6 +30,14 @@ class Package {
 		if ( is_admin() ) {
 			Admin::init();
 		}
+	}
+
+	public static function oss_procedure_is_enabled() {
+		return apply_filters( 'oss_woocommerce_oss_procedure_is_enabled', false );
+	}
+
+	public static function enable_auto_observer() {
+		return apply_filters( 'oss_woocommerce_enable_auto_observer', false );
 	}
 
 	protected static function observe() {
@@ -159,10 +167,6 @@ class Package {
 				}
 			}
 		}
-	}
-
-	public static function enable_auto_observer() {
-		return apply_filters( 'oss_woocommerce_enable_auto_observer', false );
 	}
 
 	public static function get_report_ids( $include_observer = true ) {

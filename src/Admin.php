@@ -7,8 +7,6 @@ defined( 'ABSPATH' ) || exit;
 class Admin {
 
 	public static function init() {
-		add_action( 'admin_post_oss_create_report', array( __CLASS__, 'create_report' ) );
-
 		foreach ( array( 'delete', 'refresh', 'cancel' ) as $action ) {
 			add_action( 'admin_post_oss_' . $action . '_report', array( __CLASS__, $action . '_report' ) );
 		}
@@ -38,6 +36,33 @@ class Admin {
 		}
 
 		wp_safe_redirect( wp_get_referer() );
+		exit();
+	}
+
+	public static function cancel_report() {
+		if ( ! current_user_can( 'manage_woocommerce' ) || ! wp_verify_nonce( isset( $_GET['_wpnonce'] ) ? wp_unslash( $_GET['_wpnonce'] ) : '', 'oss_cancel_report' ) ) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+			wp_die();
+		}
+
+		$report_id = isset( $_GET['report_id'] ) ? wc_clean( wp_unslash( $_GET['report_id'] ) ) : '';
+
+		if ( ! empty( $report_id ) && Queue::is_running( $report_id ) ) {
+			Queue::cancel( $report_id );
+
+			$referer = self::get_clean_referer();
+
+			/**
+			 * Do not redirect deleted, refreshed reports back to report details page
+			 */
+			if ( strstr( $referer, '&report=' ) ) {
+				$referer = admin_url( 'admin.php?page=oss-reports' );
+			}
+
+			wp_safe_redirect( esc_url_raw( add_query_arg( array( 'report_cancelled' => $report_id ), $referer ) ) );
+			exit();
+		}
+
+		wp_safe_redirect( esc_url_raw( wp_get_referer() ) );
 		exit();
 	}
 
