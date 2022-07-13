@@ -2,7 +2,7 @@
   "name": "vendidero/woocommerce-eu-oss-helper",
   "description": "OSS EU helper for WooCommerce",
   "homepage": "https://vendidero.de/",
-  "type": "library",
+  "type": "wordpress-plugin",
   "license": "GPL-3.0-or-later",
   "prefer-stable": true,
   "minimum-stability": "dev",
