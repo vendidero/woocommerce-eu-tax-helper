@@ -1,6 +1,6 @@
 {
   "name": "vendidero/woocommerce-eu-tax-helper",
-  "description": "OSS EU helper for WooCommerce",
+  "description": "EU tax helper for WooCommerce",
   "homepage": "https://vendidero.de/",
   "type": "library",
   "license": "GPL-3.0-or-later",
@@ -26,7 +26,7 @@
   },
   "autoload": {
     "psr-4": {
-      "Vendidero\\TaxHelper\\": "src/"
+      "Vendidero\\EUTaxHelper\\": "src/"
     }
   },
   "scripts": {
