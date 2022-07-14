@@ -7,8 +7,7 @@
   "prefer-stable": true,
   "minimum-stability": "dev",
   "require": {
-    "php": ">=5.6|>=7.0",
-    "composer/installers": "^1.9.0"
+    "automattic/jetpack-autoloader": "^2.6.0"
   },
   "require-dev": {
     "myclabs/deep-copy": "^1.7.0",
@@ -20,7 +19,7 @@
     "optimize-autoloader": true,
     "allow-plugins": true,
     "platform": {
-      "php": "7.2"
+      "php": "7.1"
     },
     "preferred-install": "dist",
     "sort-packages": true
