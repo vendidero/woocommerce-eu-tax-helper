@@ -4,6 +4,10 @@ namespace Vendidero\EUTaxHelper;
 
 defined( 'ABSPATH' ) || exit;
 
+if ( class_exists( 'Vendidero\EUTaxHelper\Helper' ) ) {
+	return;
+}
+
 class Helper {
 
 	public static function oss_procedure_is_enabled() {
@@ -375,7 +379,7 @@ class Helper {
 		wp_cache_delete( $cache_key, 'taxes' );
 	}
 
-	public static function get_tax_class_slugs( $tax_class_slug_names ) {
+	public static function get_tax_class_slugs( $tax_class_slug_names = array() ) {
 		$tax_class_slug_names = self::parse_tax_class_slug_names( $tax_class_slug_names );
 		$cache_key            = \WC_Cache_Helper::get_cache_prefix( 'taxes' ) . 'eu_tax_helper_tax_class_slugs';
 		$slugs                = wp_cache_get( $cache_key, 'taxes' );
