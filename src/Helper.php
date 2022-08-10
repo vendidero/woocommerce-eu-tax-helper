@@ -233,13 +233,13 @@ class Helper {
 		}
 	}
 
-	protected static function is_admin_order_ajax_request() {
-		$order_actions = array( 'woocommerce_calc_line_taxes', 'add_coupon_discount', 'refund_line_items', 'delete_refund' );
+	public static function is_admin_order_ajax_request() {
+		$order_actions = array( 'woocommerce_calc_line_taxes', 'woocommerce_save_order_items', 'add_coupon_discount', 'refund_line_items', 'delete_refund' );
 
 		return isset( $_POST['action'], $_POST['order_id'] ) && ( strstr( wc_clean( wp_unslash( $_POST['action'] ) ), '_order_' ) || in_array( wc_clean( wp_unslash( $_POST['action'] ) ), $order_actions, true ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
 	}
 
-	protected static function is_admin_order_request() {
+	public static function is_admin_order_request() {
 		return is_admin() && current_user_can( 'edit_shop_orders' ) && self::is_admin_order_ajax_request();
 	}
 
@@ -306,11 +306,14 @@ class Helper {
 	}
 
 	protected static function parse_tax_class_slug_names( $tax_class_slug_names = array() ) {
-		return wp_parse_args( $tax_class_slug_names, array(
-			'reduced'         => apply_filters( 'woocommerce_eu_tax_helper_tax_class_reduced_name', __( 'Reduced rate', 'woocommerce' ) ),
-			'greater-reduced' => apply_filters( 'woocommerce_eu_tax_helper_tax_class_greater_reduced_name', _x( 'Greater reduced rate', 'tax-helper-tax-class-name', 'woocommerce-eu-tax-helper' ) ),
-			'super-reduced'   => apply_filters( 'woocommerce_eu_tax_helper_tax_class_super_reduced_name', _x( 'Super reduced rate', 'tax-helper-tax-class-name', 'woocommerce-eu-tax-helper' ) ),
-		) );
+		return wp_parse_args(
+			$tax_class_slug_names,
+			array(
+				'reduced'         => apply_filters( 'woocommerce_eu_tax_helper_tax_class_reduced_name', __( 'Reduced rate', 'woocommerce' ) ), // phpcs:ignore WordPress.WP.I18n.TextDomainMismatch
+				'greater-reduced' => apply_filters( 'woocommerce_eu_tax_helper_tax_class_greater_reduced_name', _x( 'Greater reduced rate', 'tax-helper-tax-class-name', 'woocommerce-eu-tax-helper' ) ),
+				'super-reduced'   => apply_filters( 'woocommerce_eu_tax_helper_tax_class_super_reduced_name', _x( 'Super reduced rate', 'tax-helper-tax-class-name', 'woocommerce-eu-tax-helper' ) ),
+			)
+		);
 	}
 
 	protected static function import_tax_rates_internal( $is_oss = true, $tax_class_slug_names = array() ) {
@@ -894,7 +897,7 @@ class Helper {
 		return $percentage;
 	}
 
-	protected static function get_tax_rate_percentage( $rate_id ) {
+	public static function get_tax_rate_percentage( $rate_id ) {
 		$percentage = false;
 
 		if ( is_callable( array( 'WC_Tax', 'get_rate_percent_value' ) ) ) {
