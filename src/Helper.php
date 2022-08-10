@@ -10,8 +10,95 @@ if ( class_exists( 'Vendidero\EUTaxHelper\Helper' ) ) {
 
 class Helper {
 
+	/**
+	 * Version.
+	 *
+	 * @var string
+	 */
+	const VERSION = '1.0.2';
+
+	public static function get_version() {
+		return self::VERSION;
+	}
+
 	public static function oss_procedure_is_enabled() {
 		return apply_filters( 'woocommerce_eu_tax_helper_oss_procedure_is_enabled', false );
+	}
+
+	public static function get_eu_countries() {
+		$countries = WC()->countries->get_european_union_countries();
+
+		return $countries;
+	}
+
+	public static function get_eu_vat_countries() {
+		return apply_filters( 'woocommerce_eu_tax_helper_eu_vat_countries', WC()->countries->get_european_union_countries( 'eu_vat' ) );
+	}
+
+	public static function is_northern_ireland( $country, $postcode = '' ) {
+		if ( 'GB' === $country && 'BT' === strtoupper( substr( trim( $postcode ), 0, 2 ) ) ) {
+			return true;
+		} elseif ( 'IX' === $country ) {
+			return true;
+		}
+
+		return false;
+	}
+
+	public static function is_eu_vat_country( $country, $postcode = '' ) {
+		$country           = wc_strtoupper( $country );
+		$postcode          = wc_normalize_postcode( $postcode );
+		$is_eu_vat_country = in_array( $country, self::get_eu_vat_countries(), true );
+
+		if ( self::is_northern_ireland( $country, $postcode ) ) {
+			$is_eu_vat_country = true;
+		} elseif ( self::is_eu_vat_postcode_exemption( $country, $postcode ) ) {
+			$is_eu_vat_country = false;
+		}
+
+		return apply_filters( 'woocommerce_eu_tax_helper_is_eu_vat_country', $is_eu_vat_country, $country, $postcode );
+	}
+
+	public static function is_third_country( $country, $postcode = '' ) {
+		$is_third_country = true;
+
+		/**
+		 * In case the base country is within EU consider all non-EU VAT countries as third countries.
+		 * In any other case consider every non-base-country as third country.
+		 */
+		if ( in_array( self::get_base_country(), self::get_eu_vat_countries(), true ) ) {
+			$is_third_country = ! self::is_eu_vat_country( $country, $postcode );
+		} else {
+			$is_third_country = self::get_base_country() !== $country;
+		}
+
+		return apply_filters( 'woocommerce_eu_tax_helper_is_third_country', $is_third_country, $country, $postcode );
+	}
+
+	public static function is_eu_country( $country ) {
+		return in_array( $country, self::get_eu_countries(), true );
+	}
+
+	public static function is_eu_vat_postcode_exemption( $country, $postcode = '' ) {
+		$country    = wc_strtoupper( $country );
+		$postcode   = wc_normalize_postcode( $postcode );
+		$exemptions = self::get_vat_postcode_exemptions_by_country();
+		$is_exempt  = false;
+
+		if ( ! empty( $postcode ) && in_array( $country, self::get_eu_vat_countries(), true ) ) {
+			if ( array_key_exists( $country, $exemptions ) ) {
+				$wildcards = wc_get_wildcard_postcodes( $postcode, $country );
+
+				foreach ( $exemptions[ $country ] as $exempt_postcode ) {
+					if ( in_array( $exempt_postcode, $wildcards, true ) ) {
+						$is_exempt = true;
+						break;
+					}
+				}
+			}
+		}
+
+		return $is_exempt;
 	}
 
 	/**
@@ -66,6 +153,65 @@ class Helper {
 		}
 	}
 
+	/**
+	 * @param integer|\WC_Order $order
+	 *
+	 * @return array
+	 */
+	public static function get_order_taxable_location( $order ) {
+		$order = is_a( $order, 'WC_Order' ) ? $order : wc_get_order( $order );
+
+		$taxable_address = array(
+			WC()->countries->get_base_country(),
+			WC()->countries->get_base_state(),
+			WC()->countries->get_base_postcode(),
+			WC()->countries->get_base_city(),
+		);
+
+		if ( ! $order ) {
+			return $taxable_address;
+		}
+
+		$tax_based_on = get_option( 'woocommerce_tax_based_on' );
+
+		if ( is_a( $order, 'WC_Order_Refund' ) ) {
+			$order = wc_get_order( $order->get_parent_id() );
+
+			if ( ! $order ) {
+				return $taxable_address;
+			}
+		}
+
+		/**
+		 * Shipping address data does not exist
+		 */
+		if ( 'shipping' === $tax_based_on && ! $order->get_shipping_country() ) {
+			$tax_based_on = 'billing';
+		}
+
+		$is_vat_exempt = apply_filters( 'woocommerce_order_is_vat_exempt', 'yes' === $order->get_meta( 'is_vat_exempt' ), $order );
+
+		/**
+		 * In case the order is a VAT exempt, calculate net prices based on taxes from base country.
+		 */
+		if ( $is_vat_exempt ) {
+			$tax_based_on = 'base';
+		}
+
+		$country = 'shipping' === $tax_based_on ? $order->get_shipping_country() : $order->get_billing_country();
+
+		if ( 'base' !== $tax_based_on && ! empty( $country ) ) {
+			$taxable_address = array(
+				$country,
+				'billing' === $tax_based_on ? $order->get_billing_state() : $order->get_shipping_state(),
+				'billing' === $tax_based_on ? $order->get_billing_postcode() : $order->get_shipping_postcode(),
+				'billing' === $tax_based_on ? $order->get_billing_city() : $order->get_shipping_city(),
+			);
+		}
+
+		return $taxable_address;
+	}
+
 	public static function get_taxable_location() {
 		$is_admin_order_request = self::is_admin_order_request();
 
@@ -78,32 +224,7 @@ class Helper {
 			);
 
 			if ( isset( $_POST['order_id'] ) && ( $order = wc_get_order( absint( $_POST['order_id'] ) ) ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
-				$tax_based_on = get_option( 'woocommerce_tax_based_on' );
-
-				if ( 'shipping' === $tax_based_on && ! $order->get_shipping_country() ) {
-					$tax_based_on = 'billing';
-				}
-
-				$is_vat_exempt = apply_filters( 'woocommerce_order_is_vat_exempt', 'yes' === $order->get_meta( 'is_vat_exempt' ), $order );
-
-				/**
-				 * In case the order is a VAT exempt, calculate net prices
-				 * based on taxes from base country.
-				 */
-				if ( $is_vat_exempt ) {
-					$tax_based_on = 'base';
-				}
-
-				$country = 'billing' === $tax_based_on ? $order->get_billing_country() : $order->get_shipping_country();
-
-				if ( 'base' !== $tax_based_on && ! empty( $country ) ) {
-					$taxable_address = array(
-						$country,
-						'billing' === $tax_based_on ? $order->get_billing_state() : $order->get_shipping_state(),
-						'billing' === $tax_based_on ? $order->get_billing_postcode() : $order->get_shipping_postcode(),
-						'billing' === $tax_based_on ? $order->get_billing_city() : $order->get_shipping_city(),
-					);
-				}
+				$taxable_address = self::get_order_taxable_location( $order );
 			}
 
 			return $taxable_address;
@@ -169,30 +290,7 @@ class Helper {
 	}
 
 	public static function country_supports_eu_vat( $country, $postcode = '' ) {
-		$supports_vat = in_array( $country, self::get_non_base_eu_countries(), true );
-		$exemptions   = self::get_vat_postcode_exemptions_by_country( $country );
-		$postcode     = wc_normalize_postcode( $postcode );
-		$wildcards    = wc_get_wildcard_postcodes( $postcode, $country );
-
-		if ( 'GB' === $country && in_array( 'BT*', $wildcards, true ) ) {
-			$supports_vat = true;
-		} elseif ( 'IX' === $country ) {
-			$supports_vat = true;
-		}
-
-		/**
-		 * Check whether the country + postcode is a VAT exemption.
-		 */
-		if ( ! empty( $exemptions ) ) {
-			foreach ( $exemptions as $exempt_postcode ) {
-				if ( in_array( $exempt_postcode, $wildcards, true ) ) {
-					$supports_vat = false;
-					break;
-				}
-			}
-		}
-
-		return $supports_vat;
+		return self::is_eu_vat_country( $country, $postcode );
 	}
 
 	public static function import_oss_tax_rates( $tax_class_slug_names = array() ) {
@@ -694,7 +792,7 @@ class Helper {
 	public static function tax_rate_is_northern_ireland( $rate ) {
 		if ( 'GB' === $rate->tax_rate_country && isset( $rate->postcode ) && ! empty( $rate->postcode ) ) {
 			foreach ( $rate->postcode as $postcode ) {
-				if ( 'BT' === substr( $postcode, 0, 2 ) ) {
+				if ( self::is_northern_ireland( $rate->tax_rate_country, $postcode ) ) {
 					return true;
 				}
 			}
@@ -706,7 +804,7 @@ class Helper {
 	public static function import_rates( $rates, $tax_class = '' ) {
 		global $wpdb;
 
-		$eu_countries = WC()->countries->get_european_union_countries( 'eu_vat' );
+		$eu_countries = self::get_eu_vat_countries();
 
 		/**
 		 * Delete EU tax rates and make sure tax rate locations are deleted too

@@ -5,7 +5,7 @@ on:
     inputs:
       versionName:
         description: 'Version (ie 5.5.0)'
-        required: true
+        required: false
 jobs:
   createrelease:
     name: Create release
@@ -13,8 +13,49 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@master
+      - name: "Get latest GitHub Release"
+        id: last_release
+        uses: InsonusK/get-latest-release@v1.0.1
+        with:
+          myToken: ${{ secrets.GITHUB_TOKEN }}
+          view_top: 1
+      - name: Initialize mandatory git config
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email noreply@github.com
+      - name: Increase version
+        id: increase_version
+        run: |
+          CUR_V=${{ steps.last_release.outputs.tag_name }}
+          LAST_VERSION=$(sed 's/[^0-9.]//g' <<< "$CUR_V")
+          echo "Latest version -> $LAST_VERSION"
+          NEXT_VERSION=$(echo $LAST_VERSION | awk -F. -v OFS=. '{$NF += 1 ; print}')
+          echo ::set-output name=version::$NEXT_VERSION
+      - name: Next GitHub version
+        run: echo "Version increased -> ${{ steps.increase_version.outputs.version }}"
+      - name: Set version
+        id: set_version
+        run: |
+          if [ "${{ github.event.inputs.versionName }}" == "" ]; then
+            echo ::set-output name=version::${{ steps.increase_version.outputs.version }}
+          else
+            echo ::set-output name=version::${{ github.event.inputs.versionName }}
+          fi
+      - name: Maybe bump version
+        id: "bump_version"
+        run: |
+          # make file runnable, might not be necessary
+          chmod +x "bin/bump-version.sh"
+          echo "::set-output name=VERSION::$(bin/bump-version.sh -s -v ${{ steps.set_version.outputs.version }})"
+      - name: Validate version
+        run: echo "Next release version will be -> ${{ steps.bump_version.outputs.VERSION }}"
+      - name: Commit version
+        id: commit_version
+        run: |
+          git add .
+          git diff-index --quiet HEAD || git commit -m 'Version bump' --no-verify && git push -f
       - name: Create release branch
-        run: git checkout -b release/v${{ github.event.inputs.versionName }}
+        run: git checkout -b release/v${{ steps.bump_version.outputs.VERSION }}
       - name: Initialize mandatory git config
         run: |
           git config user.name "GitHub Actions"
@@ -36,18 +77,18 @@ jobs:
           git add .
           git commit -m "Adding /vendor directory to release" --no-verify
       - name: Push new branch
-        run: git push origin release/v${{ github.event.inputs.versionName }}
+        run: git push origin release/v${{ steps.bump_version.outputs.VERSION }}
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ github.event.inputs.versionName }}
-          release_name: v${{ github.event.inputs.versionName }}
-          body: ${{ github.event.inputs.versionName }}
+          tag_name: v${{ steps.bump_version.outputs.VERSION }}
+          release_name: ${{ steps.bump_version.outputs.VERSION }}
+          body: "Release of version ${{ steps.bump_version.outputs.VERSION }}."
           draft: false
           prerelease: false
-          commitish: release/v${{ github.event.inputs.versionName }}
+          commitish: release/v${{ steps.bump_version.outputs.VERSION }}
       - name: Remove branch
-        run: git checkout main && git branch -D release/v${{ github.event.inputs.versionName }} && git push origin --delete release/v${{ github.event.inputs.versionName }}
+        run: git checkout main && git branch -D release/v${{ steps.bump_version.outputs.VERSION }} && git push origin --delete release/v${{ steps.bump_version.outputs.VERSION }}
