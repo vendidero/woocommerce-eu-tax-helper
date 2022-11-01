@@ -1,6 +1,7 @@
 #!/bin/bash
 
 PACKAGE_FILE=src/Helper.php
+COMPOSER_FILE=composer.json
 
 # Allow passing a custom version string - defaults to "next"
 SMOOTH_BUMP=false
@@ -20,13 +21,18 @@ while getopts 'sv:' flag; do
 done
 
 LAST_PACKAGE='1.0.0'
+LAST_COMPOSER=$LAST_PACKAGE
 
 if test -f "$PACKAGE_FILE"; then
     LAST_PACKAGE=$(perl -ne 'print $1 while /\s*const\sVERSION\s=\s'\''(\d+\.\d+\.\d+)/sg' $PACKAGE_FILE)
 fi
 
+if test -f "$COMPOSER_FILE"; then
+    LAST_COMPOSER=$(perl -ne 'print $1 while /\s*"version":\s\"(\d+\.\d+\.\d+)/sg' $COMPOSER_FILE)
+fi
+
 # Store the latest version detected in the actual files
-LATEST=$(printf "$LAST_PACKAGE" | sort -V -r | head -1)
+LATEST=$(printf "$LAST_PACKAGE\n$LAST_COMPOSER" | sort -V -r | head -1)
 
 NEXT_VERSION=$(echo ${LATEST} | awk -F. -v OFS=. '{$NF += 1 ; print}')
 
@@ -48,6 +54,10 @@ export NEW_VERSION
 
 if test -f "$PACKAGE_FILE"; then
     perl -pe '/^\s*const\sVERSION\s=\s/ and s/(\d+\.\d+\.\d+)/$2 . ("$ENV{'NEW_VERSION'}")/e' -i $PACKAGE_FILE
+fi
+
+if test -f "$COMPOSER_FILE"; then
+    perl -pe '/^\s*"version":/ and s/(\d+\.\d+\.\d+)/$2 . ("$ENV{'NEW_VERSION'}")/e' -i $COMPOSER_FILE
 fi
 
 # Output the current version including appendices
