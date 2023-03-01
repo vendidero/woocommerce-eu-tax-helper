@@ -15,7 +15,7 @@ class Helper {
 	 *
 	 * @var string
 	 */
-	const VERSION = '1.0.4';
+	const VERSION = '1.0.5';
 
 	public static function get_version() {
 		return self::VERSION;
@@ -673,8 +673,8 @@ class Helper {
 			),
 			'LU' => array(
 				array(
-					'standard'      => 17,
-					'reduced'       => array( 8 ),
+					'standard'      => 16,
+					'reduced'       => array( 7 ),
 					'super-reduced' => 3,
 				),
 			),
