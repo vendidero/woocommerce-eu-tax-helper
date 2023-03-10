@@ -15,7 +15,7 @@ class Helper {
 	 *
 	 * @var string
 	 */
-	const VERSION = '1.0.5';
+	const VERSION = '1.0.6';
 
 	public static function get_version() {
 		return self::VERSION;
@@ -312,6 +312,7 @@ class Helper {
 				'reduced'         => apply_filters( 'woocommerce_eu_tax_helper_tax_class_reduced_name', __( 'Reduced rate', 'woocommerce' ) ), // phpcs:ignore WordPress.WP.I18n.TextDomainMismatch
 				'greater-reduced' => apply_filters( 'woocommerce_eu_tax_helper_tax_class_greater_reduced_name', _x( 'Greater reduced rate', 'tax-helper-tax-class-name', 'woocommerce-eu-tax-helper' ) ),
 				'super-reduced'   => apply_filters( 'woocommerce_eu_tax_helper_tax_class_super_reduced_name', _x( 'Super reduced rate', 'tax-helper-tax-class-name', 'woocommerce-eu-tax-helper' ) ),
+				'zero'            => apply_filters( 'woocommerce_eu_tax_helper_tax_class_zero_name', __( 'Zero rate', 'woocommerce' ) ), // phpcs:ignore WordPress.WP.I18n.TextDomainMismatch
 			)
 		);
 	}
@@ -489,6 +490,7 @@ class Helper {
 			$reduced_tax_class         = false;
 			$greater_reduced_tax_class = false;
 			$super_reduced_tax_class   = false;
+			$zero_tax_class            = false;
 			$tax_classes               = \WC_Tax::get_tax_class_slugs();
 
 			/**
@@ -511,8 +513,12 @@ class Helper {
 					$reduced_tax_class = $slug;
 				} elseif ( ! $reduced_tax_class && strstr( $slug, sanitize_title( $tax_class_slug_names['reduced'] ) ) ) { // phpcs:ignore WordPress.WP.I18n.TextDomainMismatch
 					$reduced_tax_class = $slug;
-				} elseif ( ! $reduced_tax_class && strstr( $slug, 'reduced' ) && ! $reduced_tax_class ) {
+				} elseif ( ! $reduced_tax_class && strstr( $slug, 'reduced' ) ) {
 					$reduced_tax_class = $slug;
+				} elseif ( ! $zero_tax_class && strstr( $slug, sanitize_title( $tax_class_slug_names['zero'] ) ) ) {
+					$zero_tax_class = $slug;
+				} elseif ( ! $zero_tax_class && strstr( $slug, 'zero' ) ) {
+					$zero_tax_class = $slug;
 				}
 			}
 
@@ -521,6 +527,7 @@ class Helper {
 				'greater-reduced' => $greater_reduced_tax_class,
 				'super-reduced'   => $super_reduced_tax_class,
 				'standard'        => '',
+				'zero'            => $zero_tax_class
 			);
 
 			wp_cache_set( $cache_key, $slugs, 'taxes' );
