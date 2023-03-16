@@ -15,7 +15,7 @@ class Helper {
 	 *
 	 * @var string
 	 */
-	const VERSION = '1.0.6';
+	const VERSION = '1.0.7';
 
 	public static function get_version() {
 		return self::VERSION;
@@ -332,7 +332,7 @@ class Helper {
 				switch ( $tax_class_type ) {
 					case 'reduced':
 						/* translators: Do not translate */
-						\WC_Tax::create_tax_class( $tax_class_slug_names['reduced'] ); // phpcs:ignore WordPress.WP.I18n.TextDomainMismatch
+						\WC_Tax::create_tax_class( $tax_class_slug_names['reduced'] );
 						break;
 					case 'greater-reduced':
 						\WC_Tax::create_tax_class( $tax_class_slug_names['greater-reduced'] );
@@ -340,97 +340,108 @@ class Helper {
 					case 'super-reduced':
 						\WC_Tax::create_tax_class( $tax_class_slug_names['super-reduced'] );
 						break;
+					case 'zero':
+						\WC_Tax::create_tax_class( $tax_class_slug_names['zero'] );
+						break;
 				}
 			}
 
 			$new_rates = array();
 
-			foreach ( $eu_rates as $country => $rates_data ) {
+			if ( 'zero' === $tax_class_type ) {
+				$new_rates = array(
+					array(
+						'country' => '*',
+						'rate'    => 0.0,
+						'name'    => '',
+					)
+				);
+			} else {
+				foreach ( $eu_rates as $country => $rates_data ) {
+					/**
+					 * Use base country rates in case OSS is disabled
+					 */
+					if ( ! $is_oss ) {
+						$base_country = self::get_base_country();
 
-				/**
-				 * Use base country rates in case OSS is disabled
-				 */
-				if ( ! $is_oss ) {
-					$base_country = self::get_base_country();
+						if ( isset( $eu_rates[ $base_country ] ) ) {
+							/**
+							 * In case the country includes multiple rules (e.g. postcode exempts) by default
+							 * do only use the last rule (which does not include exempts) to construct non-base country tax rules.
+							 */
+							if ( $base_country !== $country ) {
+								$base_country_base_rate = array_values( array_slice( $eu_rates[ $base_country ], -1 ) )[0];
 
-					if ( isset( $eu_rates[ $base_country ] ) ) {
-						/**
-						 * In case the country includes multiple rules (e.g. postcode exempts) by default
-						 * do only use the last rule (which does not include exempts) to construct non-base country tax rules.
-						 */
-						if ( $base_country !== $country ) {
-							$base_country_base_rate = array_values( array_slice( $eu_rates[ $base_country ], -1 ) )[0];
+								foreach ( $rates_data as $key => $rate_data ) {
+									$rates_data[ $key ] = array_replace_recursive( $rate_data, $base_country_base_rate );
 
-							foreach ( $rates_data as $key => $rate_data ) {
-								$rates_data[ $key ] = array_replace_recursive( $rate_data, $base_country_base_rate );
-
-								foreach ( $tax_class_slugs as $tmp_class_type => $class_data ) {
-									/**
-									 * Do not include tax classes which are not supported by the base country.
-									 */
-									if ( isset( $rates_data[ $key ][ $tmp_class_type ] ) && ! isset( $base_country_base_rate[ $tmp_class_type ] ) ) {
-										unset( $rates_data[ $key ][ $tmp_class_type ] );
-									} elseif ( isset( $rates_data[ $key ][ $tmp_class_type ] ) ) {
+									foreach ( $tax_class_slugs as $tmp_class_type => $class_data ) {
 										/**
-										 * Replace tax class data with base data to make sure that reduced
-										 * classes have the same dimensions
+										 * Do not include tax classes which are not supported by the base country.
 										 */
-										$rates_data[ $key ][ $tmp_class_type ] = $base_country_base_rate[ $tmp_class_type ];
+										if ( isset( $rates_data[ $key ][ $tmp_class_type ] ) && ! isset( $base_country_base_rate[ $tmp_class_type ] ) ) {
+											unset( $rates_data[ $key ][ $tmp_class_type ] );
+										} elseif ( isset( $rates_data[ $key ][ $tmp_class_type ] ) ) {
+											/**
+											 * Replace tax class data with base data to make sure that reduced
+											 * classes have the same dimensions
+											 */
+											$rates_data[ $key ][ $tmp_class_type ] = $base_country_base_rate[ $tmp_class_type ];
 
-										/**
-										 * In case this is an exempt make sure to replace with zero tax rates
-										 */
-										if ( isset( $rate_data['is_exempt'] ) && $rate_data['is_exempt'] ) {
-											if ( is_array( $rates_data[ $key ][ $tmp_class_type ] ) ) {
-												foreach ( $rates_data[ $key ][ $tmp_class_type ] as $k => $rate ) {
-													$rates_data[ $key ][ $tmp_class_type ][ $k ] = 0;
+											/**
+											 * In case this is an exempt make sure to replace with zero tax rates
+											 */
+											if ( isset( $rate_data['is_exempt'] ) && $rate_data['is_exempt'] ) {
+												if ( is_array( $rates_data[ $key ][ $tmp_class_type ] ) ) {
+													foreach ( $rates_data[ $key ][ $tmp_class_type ] as $k => $rate ) {
+														$rates_data[ $key ][ $tmp_class_type ][ $k ] = 0;
+													}
+												} else {
+													$rates_data[ $key ][ $tmp_class_type ] = 0;
 												}
-											} else {
-												$rates_data[ $key ][ $tmp_class_type ] = 0;
 											}
 										}
 									}
 								}
 							}
+						} else {
+							continue;
 						}
-					} else {
-						continue;
 					}
-				}
 
-				/**
-				 * Each country may contain multiple tax rates
-				 */
-				foreach ( $rates_data as $rates ) {
+					/**
+					 * Each country may contain multiple tax rates
+					 */
+					foreach ( $rates_data as $rates ) {
+						$rates = wp_parse_args(
+							$rates,
+							array(
+								'name'      => '',
+								'postcodes' => array(),
+								'reduced'   => array(),
+							)
+						);
 
-					$rates = wp_parse_args(
-						$rates,
-						array(
-							'name'      => '',
-							'postcodes' => array(),
-							'reduced'   => array(),
-						)
-					);
+						if ( ! empty( $rates['postcode'] ) ) {
+							foreach ( $rates['postcode'] as $postcode ) {
+								$tax_rate = self::get_single_tax_rate_data( $tax_class_type, $rates, $country, $postcode );
 
-					if ( ! empty( $rates['postcode'] ) ) {
-						foreach ( $rates['postcode'] as $postcode ) {
-							$tax_rate = self::get_single_tax_rate_data( $tax_class_type, $rates, $country, $postcode );
+								if ( false !== $tax_rate ) {
+									$new_rates[] = $tax_rate;
+								}
+							}
+						} else {
+							$tax_rate = self::get_single_tax_rate_data( $tax_class_type, $rates, $country );
 
 							if ( false !== $tax_rate ) {
 								$new_rates[] = $tax_rate;
 							}
 						}
-					} else {
-						$tax_rate = self::get_single_tax_rate_data( $tax_class_type, $rates, $country );
-
-						if ( false !== $tax_rate ) {
-							$new_rates[] = $tax_rate;
-						}
 					}
 				}
 			}
 
-			self::import_rates( $new_rates, $class );
+			self::import_rates( $new_rates, $class, $tax_class_type );
 		}
 	}
 
@@ -811,7 +822,7 @@ class Helper {
 		return false;
 	}
 
-	public static function import_rates( $rates, $tax_class = '' ) {
+	public static function import_rates( $rates, $tax_class = '', $tax_class_type = '' ) {
 		global $wpdb;
 
 		$eu_countries = self::get_eu_vat_countries();
@@ -821,6 +832,8 @@ class Helper {
 		 */
 		foreach ( \WC_Tax::get_rates_for_tax_class( $tax_class ) as $rate_id => $rate ) {
 			if ( in_array( $rate->tax_rate_country, $eu_countries, true ) || self::tax_rate_is_northern_ireland( $rate ) || ( 'GB' === $rate->tax_rate_country && 'GB' !== self::get_base_country() ) ) {
+				\WC_Tax::_delete_tax_rate( $rate_id );
+			} elseif ( 'zero' === $tax_class_type && empty( $rate->tax_rate_country ) ) {
 				\WC_Tax::_delete_tax_rate( $rate_id );
 			}
 		}
@@ -839,10 +852,10 @@ class Helper {
 			);
 
 			$iso      = wc_strtoupper( $rate['country'] );
-			$vat_desc = $iso;
+			$vat_desc = '*' !== $iso ? $iso : '';
 
 			if ( ! empty( $rate['name'] ) ) {
-				$vat_desc = $vat_desc . ' ' . $rate['name'];
+				$vat_desc = ( ! empty( $vat_desc ) ? $vat_desc . ' ' : '' ) . $rate['name'];
 			}
 
 			$vat_rate = wc_format_decimal( $rate['rate'], false, true );
