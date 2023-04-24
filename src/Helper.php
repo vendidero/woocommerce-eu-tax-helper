@@ -15,7 +15,7 @@ class Helper {
 	 *
 	 * @var string
 	 */
-	const VERSION = '1.0.7';
+	const VERSION = '1.0.8';
 
 	public static function get_version() {
 		return self::VERSION;
@@ -26,13 +26,19 @@ class Helper {
 	}
 
 	public static function get_eu_countries() {
+		if ( ! WC()->countries ) {
+			return array();
+		}
+
 		$countries = WC()->countries->get_european_union_countries();
 
 		return $countries;
 	}
 
 	public static function get_eu_vat_countries() {
-		return apply_filters( 'woocommerce_eu_tax_helper_eu_vat_countries', WC()->countries->get_european_union_countries( 'eu_vat' ) );
+		$vat_countries = WC()->countries ? WC()->countries->get_european_union_countries( 'eu_vat' ) : array();
+
+		return apply_filters( 'woocommerce_eu_tax_helper_eu_vat_countries', $vat_countries );
 	}
 
 	public static function is_northern_ireland( $country, $postcode = '' ) {
@@ -274,7 +280,7 @@ class Helper {
 	 * @return string[]
 	 */
 	public static function get_non_base_eu_countries( $include_gb = false ) {
-		$countries = WC()->countries->get_european_union_countries( 'eu_vat' );
+		$countries = self::get_eu_vat_countries();
 
 		/**
 		 * Include GB to allow Northern Ireland
@@ -354,7 +360,7 @@ class Helper {
 						'country' => '*',
 						'rate'    => 0.0,
 						'name'    => '',
-					)
+					),
 				);
 			} else {
 				foreach ( $eu_rates as $country => $rates_data ) {
@@ -538,7 +544,7 @@ class Helper {
 				'greater-reduced' => $greater_reduced_tax_class,
 				'super-reduced'   => $super_reduced_tax_class,
 				'standard'        => '',
-				'zero'            => $zero_tax_class
+				'zero'            => $zero_tax_class,
 			);
 
 			wp_cache_set( $cache_key, $slugs, 'taxes' );
