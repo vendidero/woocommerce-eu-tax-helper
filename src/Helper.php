@@ -15,7 +15,7 @@ class Helper {
 	 *
 	 * @var string
 	 */
-	const VERSION = '1.0.8';
+	const VERSION = '1.0.9';
 
 	public static function get_version() {
 		return self::VERSION;
@@ -877,7 +877,7 @@ class Helper {
 				'tax_rate_priority' => 1,
 				'tax_rate_order'    => $count++,
 				'tax_rate_shipping' => ( strstr( $tax_class, 'virtual' ) ? 0 : 1 ),
-				'tax_rate_class'    => $tax_class,
+				'tax_rate_class'    => \WC_Tax::format_tax_rate_class( $tax_class ),
 			);
 
 			$new_tax_rate_id = \WC_Tax::_insert_tax_rate( $_tax_rate );
