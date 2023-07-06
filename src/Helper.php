@@ -15,7 +15,7 @@ class Helper {
 	 *
 	 * @var string
 	 */
-	const VERSION = '1.0.10';
+	const VERSION = '1.1.0';
 
 	public static function get_version() {
 		return self::VERSION;
