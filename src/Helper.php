@@ -15,7 +15,7 @@ class Helper {
 	 *
 	 * @var string
 	 */
-	const VERSION = '1.0.9';
+	const VERSION = '1.0.10';
 
 	public static function get_version() {
 		return self::VERSION;
@@ -563,15 +563,16 @@ class Helper {
 			$country = 'GB';
 		}
 
-		$eu_rates = self::get_eu_tax_rates();
-		$tax_type = 'standard';
+		$eu_rates        = self::get_eu_tax_rates();
+		$tax_type        = 'standard';
+		$rate_percentage = (float) $rate_percentage;
 
 		if ( array_key_exists( $country, $eu_rates ) ) {
 			$rates = $eu_rates[ $country ];
 
 			foreach ( $rates as $rate ) {
 				foreach ( $rate as $tax_rate_type => $tax_rate_percent ) {
-					if ( ( is_array( $tax_rate_percent ) && in_array( $rate_percentage, $tax_rate_percent, true ) ) || (float) $tax_rate_percent === (float) $rate_percentage ) {
+					if ( ( is_array( $tax_rate_percent ) && in_array( $rate_percentage, $tax_rate_percent, true ) ) || (float) $tax_rate_percent === $rate_percentage ) {
 						$tax_type = $tax_rate_type;
 						break;
 					}
