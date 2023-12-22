@@ -21,6 +21,153 @@ class Helper {
 		return self::VERSION;
 	}
 
+	public static function init() {
+		if ( did_action( 'woocommerce_eu_tax_helper_init' ) ) {
+			return;
+		}
+
+		if ( ! did_action( 'plugins_loaded' ) ) {
+			add_action(
+				'plugins_loaded',
+				function() {
+					self::load();
+				}
+			);
+		} else {
+			self::load();
+		}
+
+		do_action( 'woocommerce_eu_tax_helper_init' );
+	}
+
+	private static function get_queue() {
+		return function_exists( 'WC' ) ? WC()->queue() : false;
+	}
+
+	private static function load() {
+		$callback = function() {
+			if ( $queue = self::get_queue() ) {
+				if ( self::enable_tax_rate_observer() ) {
+					// Schedule once per day at 0:00 in local timezone
+					if ( null === $queue->get_next( 'woocommerce_eu_tax_helper_rate_observer', array(), 'woocommerce_eu_tax_helper' ) ) {
+						/**
+						 * Use WC helper method which calculates the date in current
+						 * local timezone.
+						 */
+						$date = wc_string_to_datetime( 'tomorrow midnight' );
+						$date->modify( '+1 second' );
+
+						$queue->cancel_all( 'woocommerce_eu_tax_helper_rate_observer', array(), 'woocommerce_eu_tax_helper' );
+
+						/**
+						 * Action scheduler expects the time in UTC.
+						 */
+						$queue->schedule_recurring( $date->getTimestamp(), DAY_IN_SECONDS, 'woocommerce_eu_tax_helper_rate_observer', array(), 'woocommerce_eu_tax_helper' );
+					}
+				} else {
+					$queue->cancel( 'woocommerce_eu_tax_helper_rate_observer', array(), 'woocommerce_eu_tax_helper' );
+				}
+			}
+		};
+
+		if ( ! did_action( 'init' ) ) {
+			add_action( 'init', $callback, 10 );
+		} else {
+			$callback();
+		}
+
+		add_action(
+			'woocommerce_eu_tax_helper_rate_observer',
+			function() {
+				self::maybe_apply_tax_rate_changesets();
+			},
+			10
+		);
+	}
+
+	protected static function maybe_apply_tax_rate_changesets() {
+		if ( self::enable_tax_rate_observer() ) {
+			$changes                   = self::get_eu_tax_rate_changesets();
+			$last_applied_changes_date = null;
+			$today                     = new \WC_DateTime();
+
+			if ( $last_applied_changes = get_option( 'woocommerce_eu_tax_helper_last_rate_changeset' ) ) {
+				$last_applied_changes_date = wc_string_to_datetime( $last_applied_changes . ' 00:00:00' );
+			}
+
+			self::log( sprintf( 'Checking for tax rate changes @ %1$s. Last applied changes: %2$s', $today->date_i18n( 'Y-m-d' ), ( $last_applied_changes_date ? $last_applied_changes_date->date_i18n( 'Y-m-d' ) : '-' ) ) );
+
+			foreach ( $changes as $date => $changeset ) {
+				$changeset_date = wc_string_to_datetime( $date . ' 00:00:00' );
+
+				if ( ! $last_applied_changes_date || $changeset_date > $last_applied_changes_date ) {
+					$is_oss    = self::oss_procedure_is_enabled();
+					$countries = array_keys( $changeset );
+
+					if ( $today >= $changeset_date ) {
+						self::log( sprintf( 'Updating tax rates changes for %1$s @ %2$s: %3$s', $changeset_date->date_i18n( 'Y-m-d' ), $today->date_i18n( 'Y-m-d' ), wc_print_r( $changeset, true ) ) );
+
+						if ( $is_oss ) {
+							foreach ( $countries as $country ) {
+								self::delete_tax_rates_by_country( $country );
+							}
+
+							$tax_rates = self::generate_tax_rates( true, array(), $changeset, false );
+
+							self::log( sprintf( 'New tax rates: %1$s', wc_print_r( $tax_rates, true ) ) );
+
+							foreach ( $tax_rates as $tax_class_type => $tax_rate_data ) {
+								$class = $tax_rate_data['tax_class'];
+								$rates = $tax_rate_data['rates'];
+
+								self::import_rates( $rates, $class, $tax_class_type, false );
+							}
+						} else {
+							if ( in_array( self::get_base_country(), $countries, true ) ) {
+								$eu_rates = self::get_eu_tax_rates( false );
+
+								foreach ( $changeset as $country => $tax_rates ) {
+									$eu_rates[ $country ] = $tax_rates;
+								}
+
+								$tax_rates = self::generate_tax_rates( false, array(), $eu_rates, false );
+
+								self::log( sprintf( 'New tax rates: %1$s', wc_print_r( $tax_rates, true ) ) );
+
+								foreach ( $tax_rates as $tax_class_type => $tax_rate_data ) {
+									$class = $tax_rate_data['tax_class'];
+									$rates = $tax_rate_data['rates'];
+
+									self::import_rates( $rates, $class, $tax_class_type );
+								}
+							}
+						}
+
+						update_option( 'woocommerce_eu_tax_helper_last_rate_changeset', $date );
+					}
+				}
+			}
+		}
+	}
+
+	protected static function log( $message, $type = 'info' ) {
+		$logger = wc_get_logger();
+
+		if ( ! $logger || ! apply_filters( 'woocommerce_eu_tax_helper_enable_logging', true ) ) {
+			return;
+		}
+
+		if ( ! is_callable( array( $logger, $type ) ) ) {
+			$type = 'info';
+		}
+
+		$logger->{$type}( $message, array( 'source' => 'woocommerce-eu-tax-helper' ) );
+	}
+
+	public static function enable_tax_rate_observer() {
+		return apply_filters( 'woocommerce_eu_tax_helper_enable_tax_rate_observer', true );
+	}
+
 	public static function oss_procedure_is_enabled() {
 		return apply_filters( 'woocommerce_eu_tax_helper_oss_procedure_is_enabled', false );
 	}
