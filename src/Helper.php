@@ -323,12 +323,9 @@ class Helper {
 		);
 	}
 
-	protected static function import_tax_rates_internal( $is_oss = true, $tax_class_slug_names = array() ) {
-		self::clear_cache();
-
+	public static function maybe_create_tax_classes( $tax_class_slug_names = array() ) {
 		$tax_class_slugs      = self::get_tax_class_slugs( $tax_class_slug_names );
 		$tax_class_slug_names = self::parse_tax_class_slug_names( $tax_class_slug_names );
-		$eu_rates             = self::get_eu_tax_rates();
 
 		foreach ( $tax_class_slugs as $tax_class_type => $class ) {
 			/**
@@ -337,7 +334,6 @@ class Helper {
 			if ( false === $class ) {
 				switch ( $tax_class_type ) {
 					case 'reduced':
-						/* translators: Do not translate */
 						\WC_Tax::create_tax_class( $tax_class_slug_names['reduced'] );
 						break;
 					case 'greater-reduced':
@@ -351,17 +347,33 @@ class Helper {
 						break;
 				}
 			}
+		}
+	}
 
+	public static function generate_tax_rates( $is_oss = true, $tax_class_slug_names = array(), $eu_rates = array(), $add_zero_rates = true ) {
+		self::clear_cache();
+
+		$tax_class_slugs      = self::get_tax_class_slugs( $tax_class_slug_names );
+		$tax_class_slug_names = self::parse_tax_class_slug_names( $tax_class_slug_names );
+		$eu_rates             = empty( $eu_rates ) ? self::get_eu_tax_rates() : $eu_rates;
+
+		self::maybe_create_tax_classes( $tax_class_slug_names );
+
+		$tax_rates = array();
+
+		foreach ( $tax_class_slugs as $tax_class_type => $class ) {
 			$new_rates = array();
 
 			if ( 'zero' === $tax_class_type ) {
-				$new_rates = array(
-					array(
-						'country' => '*',
-						'rate'    => 0.0,
-						'name'    => '',
-					),
-				);
+				if ( $add_zero_rates ) {
+					$new_rates = array(
+						array(
+							'country' => '*',
+							'rate'    => 0.0,
+							'name'    => '',
+						),
+					);
+				}
 			} else {
 				foreach ( $eu_rates as $country => $rates_data ) {
 					/**
@@ -376,7 +388,7 @@ class Helper {
 							 * do only use the last rule (which does not include exempts) to construct non-base country tax rules.
 							 */
 							if ( $base_country !== $country ) {
-								$base_country_base_rate = array_values( array_slice( $eu_rates[ $base_country ], -1 ) )[0];
+								$base_country_base_rate = array_values( array_slice( $eu_rates[ $base_country ], - 1 ) )[0];
 
 								foreach ( $rates_data as $key => $rate_data ) {
 									$rates_data[ $key ] = array_replace_recursive( $rate_data, $base_country_base_rate );
@@ -447,7 +459,23 @@ class Helper {
 				}
 			}
 
-			self::import_rates( $new_rates, $class, $tax_class_type );
+			$tax_rates[ $tax_class_type ] = array(
+				'tax_class' => $class,
+				'rates'     => $new_rates,
+			);
+		}
+
+		return $tax_rates;
+	}
+
+	protected static function import_tax_rates_internal( $is_oss = true, $tax_class_slug_names = array() ) {
+		$tax_rates = self::generate_tax_rates( $is_oss, $tax_class_slug_names );
+
+		foreach ( $tax_rates as $tax_class_type => $tax_rate_data ) {
+			$class = $tax_rate_data['tax_class'];
+			$rates = $tax_rate_data['rates'];
+
+			self::import_rates( $rates, $class, $tax_class_type );
 		}
 	}
 
@@ -583,7 +611,34 @@ class Helper {
 		return apply_filters( 'woocommerce_eu_tax_helper_country_rate_tax_type', $tax_type, $country, $rate_percentage );
 	}
 
-	public static function get_eu_tax_rates() {
+	public static function get_eu_tax_rate_changesets( $apply_postcode_exempts = true ) {
+		$changesets = array(
+			'2024-01-01' => array(
+				'CZ' => array(
+					array(
+						'standard' => 21,
+						'reduced'  => array( 12 ),
+					),
+				),
+				'EE' => array(
+					array(
+						'standard' => 22,
+						'reduced'  => array( 9 ),
+					),
+				),
+			),
+		);
+
+		if ( $apply_postcode_exempts ) {
+			foreach ( $changesets as $date => $tax_rates ) {
+				$changesets[ $date ] = self::apply_vat_postcode_exempts( $tax_rates );
+			}
+		}
+
+		return $changesets;
+	}
+
+	public static function get_eu_tax_rates( $apply_changesets = true ) {
 		/**
 		 * @see https://europa.eu/youreurope/business/taxation/vat/vat-rules-rates/index_en.htm
 		 *
@@ -617,7 +672,7 @@ class Helper {
 			'CZ' => array(
 				array(
 					'standard' => 21,
-					'reduced'  => array( 12 ),
+					'reduced'  => array( 10, 15 ),
 				),
 			),
 			'DE' => array(
@@ -634,7 +689,7 @@ class Helper {
 			),
 			'EE' => array(
 				array(
-					'standard' => 22,
+					'standard' => 20,
 					'reduced'  => array( 9 ),
 				),
 			),
@@ -788,6 +843,27 @@ class Helper {
 			),
 		);
 
+		if ( $apply_changesets ) {
+			$changesets = self::get_eu_tax_rate_changesets( false );
+			$today      = new \WC_DateTime();
+
+			foreach ( $changesets as $date => $changeset ) {
+				$changeset_date = wc_string_to_datetime( $date . ' 00:00:00' );
+
+				if ( $today >= $changeset_date ) {
+					foreach ( $changeset as $country => $tax_rates ) {
+						$rates[ $country ] = $tax_rates;
+					}
+				}
+			}
+		}
+
+		$rates = self::apply_vat_postcode_exempts( $rates );
+
+		return $rates;
+	}
+
+	protected static function apply_vat_postcode_exempts( $rates ) {
 		foreach ( self::get_vat_postcode_exemptions_by_country() as $country => $exempt_postcodes ) {
 			if ( array_key_exists( $country, $rates ) ) {
 				$default_rate = array_values( $rates[ $country ] )[0];
@@ -829,19 +905,34 @@ class Helper {
 		return false;
 	}
 
-	public static function import_rates( $rates, $tax_class = '', $tax_class_type = '' ) {
-		global $wpdb;
+	public static function delete_tax_rates_by_country( $country ) {
+		foreach ( self::get_tax_class_slugs() as $tax_class ) {
+			$tax_rates = \WC_Tax::find_rates(
+				array(
+					'tax_class' => $tax_class,
+					'country'   => $country,
+				)
+			);
 
+			foreach ( $tax_rates as $tax_rate_id => $tax_rate ) {
+				\WC_Tax::_delete_tax_rate( $tax_rate_id );
+			}
+		}
+	}
+
+	public static function import_rates( $rates, $tax_class = '', $tax_class_type = '', $clean = true ) {
 		$eu_countries = self::get_eu_vat_countries();
 
 		/**
 		 * Delete EU tax rates and make sure tax rate locations are deleted too
 		 */
-		foreach ( \WC_Tax::get_rates_for_tax_class( $tax_class ) as $rate_id => $rate ) {
-			if ( in_array( $rate->tax_rate_country, $eu_countries, true ) || self::tax_rate_is_northern_ireland( $rate ) || ( 'GB' === $rate->tax_rate_country && 'GB' !== self::get_base_country() ) ) {
-				\WC_Tax::_delete_tax_rate( $rate_id );
-			} elseif ( 'zero' === $tax_class_type && empty( $rate->tax_rate_country ) ) {
-				\WC_Tax::_delete_tax_rate( $rate_id );
+		if ( $clean ) {
+			foreach ( \WC_Tax::get_rates_for_tax_class( $tax_class ) as $rate_id => $rate ) {
+				if ( in_array( $rate->tax_rate_country, $eu_countries, true ) || self::tax_rate_is_northern_ireland( $rate ) || ( 'GB' === $rate->tax_rate_country && 'GB' !== self::get_base_country() ) ) {
+					\WC_Tax::_delete_tax_rate( $rate_id );
+				} elseif ( 'zero' === $tax_class_type && empty( $rate->tax_rate_country ) ) {
+					\WC_Tax::_delete_tax_rate( $rate_id );
+				}
 			}
 		}
 
