@@ -906,16 +906,15 @@ class Helper {
 	}
 
 	public static function delete_tax_rates_by_country( $country ) {
-		foreach ( self::get_tax_class_slugs() as $tax_class ) {
-			$tax_rates = \WC_Tax::find_rates(
-				array(
-					'tax_class' => $tax_class,
-					'country'   => $country,
-				)
-			);
+		global $wpdb;
 
-			foreach ( $tax_rates as $tax_rate_id => $tax_rate ) {
-				\WC_Tax::_delete_tax_rate( $tax_rate_id );
+		$country = strtoupper( $country );
+
+		foreach ( self::get_tax_class_slugs() as $tax_class ) {
+			$tax_rates = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM `{$wpdb->prefix}woocommerce_tax_rates` WHERE `tax_rate_class` = %s AND `tax_rate_country` = %s;", $tax_class, $country ) );
+
+			foreach ( $tax_rates as $tax_rate ) {
+				\WC_Tax::_delete_tax_rate( $tax_rate->tax_rate_id );
 			}
 		}
 	}
