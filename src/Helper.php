@@ -15,7 +15,7 @@ class Helper {
 	 *
 	 * @var string
 	 */
-	const VERSION = '2.0.0';
+	const VERSION = '2.0.1';
 
 	public static function get_version() {
 		return self::VERSION;
@@ -774,6 +774,15 @@ class Helper {
 					),
 				),
 			),
+			'2024-01-03' => array(
+				'LU' => array(
+					array(
+						'standard'      => 17,
+						'reduced'       => array( 8 ),
+						'super-reduced' => 3,
+					),
+				),
+			),
 		);
 
 		if ( $apply_postcode_exempts ) {
@@ -900,8 +909,8 @@ class Helper {
 			),
 			'LU' => array(
 				array(
-					'standard'      => 16,
-					'reduced'       => array( 7 ),
+					'standard'      => 17,
+					'reduced'       => array( 8 ),
 					'super-reduced' => 3,
 				),
 			),
