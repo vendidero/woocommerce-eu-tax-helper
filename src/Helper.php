@@ -17,6 +17,8 @@ class Helper {
 	 */
 	const VERSION = '2.0.2';
 
+	protected static $checkout_data = null;
+
 	public static function get_version() {
 		return self::VERSION;
 	}
@@ -400,6 +402,95 @@ class Helper {
 		return is_admin() && current_user_can( 'edit_shop_orders' ) && self::is_admin_order_ajax_request();
 	}
 
+	protected static function is_rest_api_request() {
+		if ( function_exists( 'WC' ) ) {
+			$wc = WC();
+
+			if ( is_callable( array( $wc, 'is_rest_api_request' ) ) ) {
+				return $wc->is_rest_api_request();
+			}
+		}
+
+		return false;
+	}
+
+	protected static function get_current_request_value( $key ) {
+		$value                  = null;
+		$is_admin_order_request = self::is_admin_order_request();
+		$is_rest_api_request    = self::is_rest_api_request();
+
+		if ( $is_admin_order_request ) {
+			if ( $order = wc_get_order( absint( $_POST['order_id'] ) ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotValidated
+				$getter = "get_{$key}";
+
+				if ( is_callable( array( $order, $getter ) ) ) {
+					$value = $order->{ $getter }();
+				}
+			}
+		} elseif ( $is_rest_api_request ) {
+			$getter   = "get_{$key}";
+			$customer = WC()->customer;
+
+			if ( $customer && is_callable( array( $customer, $getter ) ) ) {
+				$value = $customer->{ $getter }();
+			}
+		} else {
+			/**
+			 * Use raw post data in case available as only certain billing/shipping address
+			 * specific data is available during AJAX requests in get_posted_data.
+			 */
+			if ( is_checkout() && is_null( self::$checkout_data ) ) {
+				if ( isset( $_POST['post_data'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+					$posted = array();
+
+					if ( is_string( $_POST['post_data'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+						parse_str( $_POST['post_data'], $posted ); // phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized,WordPress.Security.ValidatedSanitizedInput.MissingUnslash
+						self::$checkout_data = wc_clean( wp_unslash( $posted ) );
+					} elseif ( is_array( $_POST['post_data'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+						self::$checkout_data = wc_clean( wp_unslash( $_POST['post_data'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+					}
+				} elseif ( isset( $_POST['woocommerce-process-checkout-nonce'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+					/**
+					 * get_posted_data() does only include core Woo data, no third-party data included.
+					 * Prevent calling get_posted_data() before fields were loaded to prevent infinite loops.
+					 */
+					if ( did_action( 'woocommerce_checkout_fields' ) ) {
+						self::$checkout_data = WC()->checkout()->get_posted_data();
+					}
+				}
+			}
+
+			/**
+			 * Fallback to customer data (or posted data in case available).
+			 */
+			if ( null === $value ) {
+				$value = WC()->checkout()->get_value( $key );
+			}
+
+			/**
+			 * If checkout data is available - force overriding
+			 */
+			if ( self::$checkout_data ) {
+				if ( isset( $_POST['woocommerce-process-checkout-nonce'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+					$value = isset( self::$checkout_data[ $key ] ) ? self::$checkout_data[ $key ] : WC()->checkout()->get_value( $key );
+				} else {
+					$value = isset( self::$checkout_data[ $key ] ) ? self::$checkout_data[ $key ] : null;
+				}
+
+				/**
+				 * Do only allow retrieving shipping-related data in case shipping address is activated
+				 */
+				if ( 'shipping_' === substr( $key, 0, 9 ) ) {
+					if ( ! isset( self::$checkout_data['ship_to_different_address'] ) || ! self::$checkout_data['ship_to_different_address'] || wc_ship_to_billing_address_only() ) {
+						$value = null;
+					}
+				}
+			}
+		}
+
+		return apply_filters( 'woocommerce_eu_tax_helper_current_request_data', $value, $key );
+	}
+
 	public static function current_request_is_b2b() {
 		$is_admin_order_request = self::is_admin_order_request();
 		$company                = false;
@@ -413,12 +504,11 @@ class Helper {
 				}
 			}
 		} else {
-			if ( WC()->customer ) {
-				$company = WC()->customer->get_billing_company();
+			$use_shipping_address = self::get_current_request_value( 'shipping_address_1' ) || self::get_current_request_value( 'shipping_address_2' );
+			$company              = self::get_current_request_value( 'billing_company' );
 
-				if ( WC()->customer->get_shipping_address_1() || WC()->customer->get_shipping_address_2() ) {
-					$company = WC()->customer->get_shipping_company();
-				}
+			if ( $use_shipping_address ) {
+				$company = self::get_current_request_value( 'shipping_company' );
 			}
 		}
 
