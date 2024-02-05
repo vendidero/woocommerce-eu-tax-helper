@@ -15,7 +15,7 @@ class Helper {
 	 *
 	 * @var string
 	 */
-	const VERSION = '2.0.1';
+	const VERSION = '2.0.2';
 
 	public static function get_version() {
 		return self::VERSION;
@@ -400,6 +400,31 @@ class Helper {
 		return is_admin() && current_user_can( 'edit_shop_orders' ) && self::is_admin_order_ajax_request();
 	}
 
+	public static function current_request_is_b2b() {
+		$is_admin_order_request = self::is_admin_order_request();
+		$company                = false;
+
+		if ( $is_admin_order_request ) {
+			if ( $order = wc_get_order( absint( $_POST['order_id'] ) ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotValidated
+				$company = $order->get_billing_company();
+
+				if ( $order->has_shipping_address() ) {
+					$company = $order->get_shipping_company();
+				}
+			}
+		} else {
+			if ( WC()->customer ) {
+				$company = WC()->customer->get_billing_company();
+
+				if ( WC()->customer->get_shipping_address_1() || WC()->customer->get_shipping_address_2() ) {
+					$company = WC()->customer->get_shipping_company();
+				}
+			}
+		}
+
+		return apply_filters( 'woocommerce_eu_tax_helper_current_request_is_b2b', ! empty( $company ) );
+	}
+
 	public static function current_request_has_vat_exempt() {
 		$is_admin_order_request = self::is_admin_order_request();
 		$is_vat_exempt          = false;
@@ -414,7 +439,7 @@ class Helper {
 			}
 		}
 
-		return $is_vat_exempt;
+		return apply_filters( 'woocommerce_eu_tax_helper_current_request_has_vat_exempt', $is_vat_exempt );
 	}
 
 	public static function get_base_country() {
