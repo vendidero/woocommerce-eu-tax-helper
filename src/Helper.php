@@ -184,7 +184,7 @@ class Helper {
 	 * @return bool
 	 */
 	public static function exclude_b2b_without_vat_id_from_oss() {
-		return apply_filters( 'woocommerce_eu_tax_helper_oss_exclude_b2b_without_vat_id_from_oss', false );
+		return apply_filters( 'woocommerce_eu_tax_helper_exclude_b2b_without_vat_id_from_oss', false );
 	}
 
 	public static function get_eu_countries() {
