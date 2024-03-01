@@ -15,9 +15,7 @@ class Helper {
 	 *
 	 * @var string
 	 */
-	const VERSION = '2.0.2';
-
-	protected static $checkout_data = null;
+	const VERSION = '2.0.3';
 
 	public static function get_version() {
 		return self::VERSION;
@@ -178,6 +176,17 @@ class Helper {
 		return apply_filters( 'woocommerce_eu_tax_helper_oss_procedure_is_enabled', false );
 	}
 
+	/**
+	 * There are different opinions on how the entrepreneurial status must be proven.
+	 * By default, deliveries without a valid VAT ID are classified as b2c deliveries
+	 * and therefore as relevant for the OSS procedure.
+	 *
+	 * @return bool
+	 */
+	public static function exclude_b2b_without_vat_id_from_oss() {
+		return apply_filters( 'woocommerce_eu_tax_helper_oss_exclude_b2b_without_vat_id_from_oss', false );
+	}
+
 	public static function get_eu_countries() {
 		if ( ! WC()->countries ) {
 			return array();
@@ -270,8 +279,19 @@ class Helper {
 	 * @return \string[][]
 	 */
 	public static function get_vat_postcode_exemptions_by_country( $country = '' ) {
-		$country = wc_strtoupper( $country );
+		$country    = wc_strtoupper( $country );
+		$exemptions = self::get_vat_postcode_exemptions();
 
+		if ( empty( $country ) ) {
+			return $exemptions;
+		} elseif ( array_key_exists( $country, $exemptions ) ) {
+			return $exemptions[ $country ];
+		} else {
+			return array();
+		}
+	}
+
+	public static function get_vat_postcode_exemptions() {
 		$exemptions = array(
 			'DE' => array(
 				'27498', // Helgoland
@@ -303,13 +323,7 @@ class Helper {
 			),
 		);
 
-		if ( empty( $country ) ) {
-			return $exemptions;
-		} elseif ( array_key_exists( $country, $exemptions ) ) {
-			return $exemptions[ $country ];
-		} else {
-			return array();
-		}
+		return $exemptions;
 	}
 
 	/**
@@ -417,7 +431,6 @@ class Helper {
 	protected static function get_current_request_value( $key ) {
 		$value                  = null;
 		$is_admin_order_request = self::is_admin_order_request();
-		$is_rest_api_request    = self::is_rest_api_request();
 
 		if ( $is_admin_order_request ) {
 			if ( $order = wc_get_order( absint( $_POST['order_id'] ) ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotValidated
@@ -427,64 +440,60 @@ class Helper {
 					$value = $order->{ $getter }();
 				}
 			}
-		} elseif ( $is_rest_api_request ) {
-			$getter   = "get_{$key}";
-			$customer = WC()->customer;
+		} elseif ( did_action( 'woocommerce_checkout_update_order_review' ) ) {
+			if ( in_array(
+				$key,
+				array(
+					'billing_country',
+					'billing_state',
+					'billing_postcode',
+					'billing_city',
+					'billing_address_1',
+					'billing_address_2',
+					'shipping_country',
+					'shipping_state',
+					'shipping_postcode',
+					'shipping_city',
+					'shipping_address_1',
+					'shipping_address_2',
+				),
+				true
+			) ) {
+				$customer = WC()->customer;
+				$getter   = "get_{$key}";
 
-			if ( $customer && is_callable( array( $customer, $getter ) ) ) {
-				$value = $customer->{ $getter }();
-			}
-		} else {
-			/**
-			 * Use raw post data in case available as only certain billing/shipping address
-			 * specific data is available during AJAX requests in get_posted_data.
-			 */
-			if ( is_checkout() && is_null( self::$checkout_data ) ) {
+				if ( $customer && is_callable( array( $customer, $getter ) ) ) {
+					$value = $customer->{ $getter }();
+				}
+			} else {
 				if ( isset( $_POST['post_data'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
 					$posted = array();
 
 					if ( is_string( $_POST['post_data'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
 						parse_str( $_POST['post_data'], $posted ); // phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized,WordPress.Security.ValidatedSanitizedInput.MissingUnslash
-						self::$checkout_data = wc_clean( wp_unslash( $posted ) );
+						$posted = wc_clean( wp_unslash( $posted ) );
 					} elseif ( is_array( $_POST['post_data'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
-						self::$checkout_data = wc_clean( wp_unslash( $_POST['post_data'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+						$posted = wc_clean( wp_unslash( $_POST['post_data'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
 					}
-				} elseif ( isset( $_POST['woocommerce-process-checkout-nonce'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+
+					$value = isset( $posted[ $key ] ) ? $posted[ $key ] : null;
+
 					/**
-					 * get_posted_data() does only include core Woo data, no third-party data included.
-					 * Prevent calling get_posted_data() before fields were loaded to prevent infinite loops.
+					 * Do only allow retrieving shipping-related data in case shipping address is activated
 					 */
-					if ( did_action( 'woocommerce_checkout_fields' ) ) {
-						self::$checkout_data = WC()->checkout()->get_posted_data();
+					if ( 'shipping_' === substr( $key, 0, 9 ) ) {
+						if ( ! isset( $posted['ship_to_different_address'] ) || ! $posted['ship_to_different_address'] || wc_ship_to_billing_address_only() ) {
+							return self::get_current_request_value( str_replace( 'shipping_', 'billing_', $key ) );
+						}
 					}
 				}
 			}
+		} else {
+			$getter   = "get_{$key}";
+			$customer = WC()->customer;
 
-			/**
-			 * Fallback to customer data (or posted data in case available).
-			 */
-			if ( null === $value ) {
-				$value = WC()->checkout()->get_value( $key );
-			}
-
-			/**
-			 * If checkout data is available - force overriding
-			 */
-			if ( self::$checkout_data ) {
-				if ( isset( $_POST['woocommerce-process-checkout-nonce'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
-					$value = isset( self::$checkout_data[ $key ] ) ? self::$checkout_data[ $key ] : WC()->checkout()->get_value( $key );
-				} else {
-					$value = isset( self::$checkout_data[ $key ] ) ? self::$checkout_data[ $key ] : null;
-				}
-
-				/**
-				 * Do only allow retrieving shipping-related data in case shipping address is activated
-				 */
-				if ( 'shipping_' === substr( $key, 0, 9 ) ) {
-					if ( ! isset( self::$checkout_data['ship_to_different_address'] ) || ! self::$checkout_data['ship_to_different_address'] || wc_ship_to_billing_address_only() ) {
-						$value = null;
-					}
-				}
+			if ( $customer && is_callable( array( $customer, $getter ) ) ) {
+				$value = $customer->{ $getter }();
 			}
 		}
 
