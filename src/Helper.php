@@ -15,7 +15,7 @@ class Helper {
 	 *
 	 * @var string
 	 */
-	const VERSION = '2.0.3';
+	const VERSION = '2.0.4';
 
 	public static function get_version() {
 		return self::VERSION;
@@ -335,10 +335,10 @@ class Helper {
 		$order = is_a( $order, 'WC_Order' ) ? $order : wc_get_order( $order );
 
 		$taxable_address = array(
-			WC()->countries->get_base_country(),
-			WC()->countries->get_base_state(),
-			WC()->countries->get_base_postcode(),
-			WC()->countries->get_base_city(),
+			self::get_base_country(),
+			self::get_base_state(),
+			self::get_base_postcode(),
+			self::get_base_city(),
 		);
 
 		if ( ! $order ) {
@@ -390,10 +390,10 @@ class Helper {
 
 		if ( $is_admin_order_request ) {
 			$taxable_address = array(
-				WC()->countries->get_base_country(),
-				WC()->countries->get_base_state(),
-				WC()->countries->get_base_postcode(),
-				WC()->countries->get_base_city(),
+				self::get_base_country(),
+				self::get_base_state(),
+				self::get_base_postcode(),
+				self::get_base_city(),
 			);
 
 			if ( isset( $_POST['order_id'] ) && ( $order = wc_get_order( absint( $_POST['order_id'] ) ) ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
@@ -543,10 +543,42 @@ class Helper {
 
 	public static function get_base_country() {
 		if ( WC()->countries ) {
-			return WC()->countries->get_base_country();
+			$base_country = WC()->countries->get_base_country();
 		} else {
-			return wc_get_base_location()['country'];
+			$base_country = wc_get_base_location()['country'];
 		}
+
+		return apply_filters( 'woocommerce_eu_tax_helper_base_country', $base_country );
+	}
+
+	public static function get_base_postcode() {
+		$base_postcode = '';
+
+		if ( WC()->countries ) {
+			$base_postcode = WC()->countries->get_base_postcode();
+		}
+
+		return apply_filters( 'woocommerce_eu_tax_helper_base_postcode', $base_postcode );
+	}
+
+	public static function get_base_state() {
+		$base_state = '';
+
+		if ( WC()->countries ) {
+			$base_state = WC()->countries->get_base_state();
+		}
+
+		return apply_filters( 'woocommerce_eu_tax_helper_base_state', $base_state );
+	}
+
+	public static function get_base_city() {
+		$base_city = '';
+
+		if ( WC()->countries ) {
+			$base_city = WC()->countries->get_base_city();
+		}
+
+		return apply_filters( 'woocommerce_eu_tax_helper_base_city', $base_city );
 	}
 
 	/**
