@@ -29,7 +29,7 @@ class Helper {
 		if ( ! did_action( 'plugins_loaded' ) ) {
 			add_action(
 				'plugins_loaded',
-				function() {
+				function () {
 					self::load();
 				}
 			);
@@ -45,7 +45,7 @@ class Helper {
 	}
 
 	private static function load() {
-		$callback = function() {
+		$callback = function () {
 			if ( $queue = self::get_queue() ) {
 				if ( self::enable_tax_rate_observer() ) {
 					// Schedule once per day at 0:00 in local timezone
@@ -78,7 +78,7 @@ class Helper {
 
 		add_action(
 			'woocommerce_eu_tax_helper_rate_observer',
-			function() {
+			function () {
 				self::maybe_apply_tax_rate_changesets();
 			},
 			10
@@ -121,24 +121,22 @@ class Helper {
 
 							self::import_rates( $rates, $class, $tax_class_type, false );
 						}
-					} else {
-						if ( in_array( self::get_base_country(), $countries, true ) ) {
+					} elseif ( in_array( self::get_base_country(), $countries, true ) ) {
 							$eu_rates = self::get_eu_tax_rates( false );
 
-							foreach ( $changeset as $country => $tax_rates ) {
-								$eu_rates[ $country ] = $tax_rates;
-							}
+						foreach ( $changeset as $country => $tax_rates ) {
+							$eu_rates[ $country ] = $tax_rates;
+						}
 
 							$tax_rates = self::generate_tax_rates( false, array(), $eu_rates, false );
 
 							self::log( sprintf( 'New tax rates: %1$s', wc_print_r( $tax_rates, true ) ) );
 
-							foreach ( $tax_rates as $tax_class_type => $tax_rate_data ) {
-								$class = $tax_rate_data['tax_class'];
-								$rates = $tax_rate_data['rates'];
+						foreach ( $tax_rates as $tax_class_type => $tax_rate_data ) {
+							$class = $tax_rate_data['tax_class'];
+							$rates = $tax_rate_data['rates'];
 
-								self::import_rates( $rates, $class, $tax_class_type );
-							}
+							self::import_rates( $rates, $class, $tax_class_type );
 						}
 					}
 
@@ -465,26 +463,24 @@ class Helper {
 				if ( $customer && is_callable( array( $customer, $getter ) ) ) {
 					$value = $customer->{ $getter }();
 				}
-			} else {
-				if ( isset( $_POST['post_data'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
-					$posted = array();
+			} elseif ( isset( $_POST['post_data'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+				$posted = array();
 
-					if ( is_string( $_POST['post_data'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
-						parse_str( $_POST['post_data'], $posted ); // phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized,WordPress.Security.ValidatedSanitizedInput.MissingUnslash
-						$posted = wc_clean( wp_unslash( $posted ) );
-					} elseif ( is_array( $_POST['post_data'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
-						$posted = wc_clean( wp_unslash( $_POST['post_data'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
-					}
+				if ( is_string( $_POST['post_data'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+					parse_str( $_POST['post_data'], $posted ); // phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized,WordPress.Security.ValidatedSanitizedInput.MissingUnslash
+					$posted = wc_clean( wp_unslash( $posted ) );
+				} elseif ( is_array( $_POST['post_data'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+					$posted = wc_clean( wp_unslash( $_POST['post_data'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+				}
 
-					$value = isset( $posted[ $key ] ) ? $posted[ $key ] : null;
+				$value = isset( $posted[ $key ] ) ? $posted[ $key ] : null;
 
-					/**
-					 * Do only allow retrieving shipping-related data in case shipping address is activated
-					 */
-					if ( 'shipping_' === substr( $key, 0, 9 ) ) {
-						if ( ! isset( $posted['ship_to_different_address'] ) || ! $posted['ship_to_different_address'] || wc_ship_to_billing_address_only() ) {
-							return self::get_current_request_value( str_replace( 'shipping_', 'billing_', $key ) );
-						}
+				/**
+				 * Do only allow retrieving shipping-related data in case shipping address is activated
+				 */
+				if ( 'shipping_' === substr( $key, 0, 9 ) ) {
+					if ( ! isset( $posted['ship_to_different_address'] ) || ! $posted['ship_to_different_address'] || wc_ship_to_billing_address_only() ) {
+						return self::get_current_request_value( str_replace( 'shipping_', 'billing_', $key ) );
 					}
 				}
 			}
@@ -532,10 +528,8 @@ class Helper {
 			if ( $order = wc_get_order( absint( $_POST['order_id'] ) ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotValidated
 				$is_vat_exempt = apply_filters( 'woocommerce_order_is_vat_exempt', 'yes' === $order->get_meta( 'is_vat_exempt' ), $order );
 			}
-		} else {
-			if ( WC()->customer && WC()->customer->is_vat_exempt() ) {
+		} elseif ( WC()->customer && WC()->customer->is_vat_exempt() ) {
 				$is_vat_exempt = true;
-			}
 		}
 
 		return apply_filters( 'woocommerce_eu_tax_helper_current_request_has_vat_exempt', $is_vat_exempt );
