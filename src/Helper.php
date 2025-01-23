@@ -15,7 +15,7 @@ class Helper {
 	 *
 	 * @var string
 	 */
-	const VERSION = '2.0.5';
+	const VERSION = '2.0.6';
 
 	public static function get_version() {
 		return self::VERSION;
@@ -122,15 +122,15 @@ class Helper {
 							self::import_rates( $rates, $class, $tax_class_type, false );
 						}
 					} elseif ( in_array( self::get_base_country(), $countries, true ) ) {
-							$eu_rates = self::get_eu_tax_rates( false );
+						$eu_rates = self::get_eu_tax_rates( false );
 
 						foreach ( $changeset as $country => $tax_rates ) {
 							$eu_rates[ $country ] = $tax_rates;
 						}
 
-							$tax_rates = self::generate_tax_rates( false, array(), $eu_rates, false );
+						$tax_rates = self::generate_tax_rates( false, array(), $eu_rates, false );
 
-							self::log( sprintf( 'New tax rates: %1$s', wc_print_r( $tax_rates, true ) ) );
+						self::log( sprintf( 'New tax rates: %1$s', wc_print_r( $tax_rates, true ) ) );
 
 						foreach ( $tax_rates as $tax_class_type => $tax_rate_data ) {
 							$class = $tax_rate_data['tax_class'];
@@ -937,6 +937,14 @@ class Helper {
 					),
 				),
 			),
+			'2024-09-01' => array(
+				'FI' => array(
+					array(
+						'standard' => 25.5,
+						'reduced'  => array( 10, 14 ),
+					),
+				),
+			),
 		);
 
 		if ( $apply_postcode_exempts ) {
@@ -1018,7 +1026,7 @@ class Helper {
 			),
 			'FI' => array(
 				array(
-					'standard' => 24,
+					'standard' => 25.5,
 					'reduced'  => array( 10, 14 ),
 				),
 			),
