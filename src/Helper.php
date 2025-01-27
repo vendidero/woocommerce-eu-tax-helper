@@ -15,7 +15,7 @@ class Helper {
 	 *
 	 * @var string
 	 */
-	const VERSION = '2.0.6';
+	const VERSION = '2.0.7';
 
 	public static function get_version() {
 		return self::VERSION;
@@ -945,6 +945,20 @@ class Helper {
 					),
 				),
 			),
+			'2025-01-01' => array(
+				'SK' => array(
+					array(
+						'standard' => 23,
+						'reduced'  => array( 19 ),
+					),
+				),
+				'EE' => array(
+					array(
+						'standard' => 22,
+						'reduced'  => array( 9, 13 ),
+					),
+				),
+			),
 		);
 
 		if ( $apply_postcode_exempts ) {
@@ -1008,7 +1022,7 @@ class Helper {
 			'EE' => array(
 				array(
 					'standard' => 22,
-					'reduced'  => array( 9 ),
+					'reduced'  => array( 9, 13 ),
 				),
 			),
 			'GR' => array(
@@ -1112,7 +1126,7 @@ class Helper {
 					// Madeira
 					'postcode' => array( '90*', '91*', '92*', '93*', '94*' ),
 					'standard' => 22,
-					'reduced'  => array( 5, 12 ),
+					'reduced'  => array( 4, 12 ),
 					'name'     => _x( 'Madeira', 'tax-helper', 'woocommerce-eu-tax-helper' ),
 				),
 				array(
@@ -1147,8 +1161,8 @@ class Helper {
 			),
 			'SK' => array(
 				array(
-					'standard' => 20,
-					'reduced'  => array( 10 ),
+					'standard' => 23,
+					'reduced'  => array( 19 ),
 				),
 			),
 			'GB' => array(
