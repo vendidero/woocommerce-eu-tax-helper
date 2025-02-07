@@ -55,8 +55,6 @@ class Helper {
 						 * local timezone.
 						 */
 						$date = wc_string_to_datetime( 'tomorrow midnight' );
-						$date->modify( '+1 second' );
-
 						$queue->cancel_all( 'woocommerce_eu_tax_helper_rate_observer', array(), 'woocommerce_eu_tax_helper' );
 
 						/**
