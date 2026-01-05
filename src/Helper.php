@@ -975,12 +975,16 @@ class Helper {
 			),
 			'2026-01-01' => array(
 				'LT' => array(
-					'standard' => 21,
-					'reduced'  => array( 5, 12 ),
+					array(
+						'standard' => 21,
+						'reduced'  => array( 5, 12 ),
+					),
 				),
 				'FI' => array(
-					'standard' => 25.5,
-					'reduced'  => array( 10, 13.5 ),
+					array(
+						'standard' => 25.5,
+						'reduced'  => array( 10, 13.5 ),
+					),
 				),
 			),
 		);
