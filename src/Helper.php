@@ -15,7 +15,7 @@ class Helper {
 	 *
 	 * @var string
 	 */
-	const VERSION = '2.0.9';
+	const VERSION = '2.1.0';
 
 	public static function get_version() {
 		return self::VERSION;
@@ -899,7 +899,10 @@ class Helper {
 
 			foreach ( $rates as $rate ) {
 				foreach ( $rate as $tax_rate_type => $tax_rate_percent ) {
-					if ( ( is_array( $tax_rate_percent ) && in_array( $rate_percentage, $tax_rate_percent, true ) ) || (float) $tax_rate_percent === $rate_percentage ) {
+					/**
+					 * Do not use strict for in array as some rates may be stored as integer instead of floats.
+					 */
+					if ( ( is_array( $tax_rate_percent ) && in_array( $rate_percentage, $tax_rate_percent ) ) || (float) $tax_rate_percent === $rate_percentage ) { // phpcs:ignore WordPress.PHP.StrictInArray.MissingTrueStrict
 						$tax_type = $tax_rate_type;
 						break;
 					}
