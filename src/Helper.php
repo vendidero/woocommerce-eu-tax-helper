@@ -15,7 +15,7 @@ class Helper {
 	 *
 	 * @var string
 	 */
-	const VERSION = '2.1.1';
+	const VERSION = '2.2.0';
 
 	public static function get_version() {
 		return self::VERSION;
@@ -625,12 +625,15 @@ class Helper {
 	public static function maybe_create_tax_classes( $tax_class_slug_names = array() ) {
 		$tax_class_slugs      = self::get_tax_class_slugs( $tax_class_slug_names );
 		$tax_class_slug_names = self::parse_tax_class_slug_names( $tax_class_slug_names );
+		$has_created_new      = false;
 
 		foreach ( $tax_class_slugs as $tax_class_type => $class ) {
 			/**
 			 * Maybe create missing tax classes
 			 */
-			if ( false === $class ) {
+			if ( false === $class || ( '' === $class && 'standard' !== $tax_class_type ) ) {
+				$has_created_new = true;
+
 				switch ( $tax_class_type ) {
 					case 'reduced':
 						\WC_Tax::create_tax_class( $tax_class_slug_names['reduced'] );
@@ -647,18 +650,22 @@ class Helper {
 				}
 			}
 		}
+
+		if ( $has_created_new ) {
+			self::clear_cache();
+		}
 	}
 
 	public static function generate_tax_rates( $is_oss = true, $tax_class_slug_names = array(), $eu_rates = array(), $add_zero_rates = true ) {
 		self::clear_cache();
 
-		$tax_class_slugs      = self::get_tax_class_slugs( $tax_class_slug_names );
 		$tax_class_slug_names = self::parse_tax_class_slug_names( $tax_class_slug_names );
-		$eu_rates             = empty( $eu_rates ) ? self::get_eu_tax_rates() : $eu_rates;
 
 		self::maybe_create_tax_classes( $tax_class_slug_names );
 
-		$tax_rates = array();
+		$tax_class_slugs = self::get_tax_class_slugs( $tax_class_slug_names );
+		$eu_rates        = empty( $eu_rates ) ? self::get_eu_tax_rates() : $eu_rates;
+		$tax_rates       = array();
 
 		foreach ( $tax_class_slugs as $tax_class_type => $class ) {
 			$new_rates = array();
@@ -867,14 +874,16 @@ class Helper {
 			}
 
 			$slugs = array(
-				'reduced'         => $reduced_tax_class,
-				'greater-reduced' => $greater_reduced_tax_class,
-				'super-reduced'   => $super_reduced_tax_class,
+				'reduced'         => empty( $reduced_tax_class ) ? false : $reduced_tax_class,
+				'greater-reduced' => empty( $greater_reduced_tax_class ) ? false : $greater_reduced_tax_class,
+				'super-reduced'   => empty( $super_reduced_tax_class ) ? false : $super_reduced_tax_class,
 				'standard'        => '',
-				'zero'            => $zero_tax_class,
+				'zero'            => empty( $zero_tax_class ) ? false : $zero_tax_class,
 			);
 
-			wp_cache_set( $cache_key, $slugs, 'taxes' );
+			if ( ! in_array( false, array_values( $slugs ), true ) ) {
+				wp_cache_set( $cache_key, $slugs, 'taxes' );
+			}
 		}
 
 		return apply_filters( 'woocommerce_eu_tax_helper_tax_rate_class_slugs', $slugs );
@@ -964,8 +973,8 @@ class Helper {
 			'2025-01-01' => array(
 				'SK' => array(
 					array(
-						'standard' => 23,
-						'reduced'  => array( 19 ),
+						'standard'      => 23,
+						'reduced'       => array( 19 ),
 						'super-reduced' => 5,
 					),
 				),
@@ -1311,6 +1320,11 @@ class Helper {
 
 	public static function import_rates( $rates, $tax_class = '', $tax_class_type = '', $clean = true ) {
 		$eu_countries = self::get_eu_vat_countries();
+
+		if ( '' === $tax_class && 'standard' !== $tax_class_type ) {
+			self::log( sprintf( 'Skip importing rates as tax class (%1$s) does not match tax class type (%2$s).', $tax_class, $tax_class_type ) );
+			return;
+		}
 
 		/**
 		 * Delete EU tax rates and make sure tax rate locations are deleted too

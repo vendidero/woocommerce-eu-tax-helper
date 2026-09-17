@@ -39,7 +39,9 @@
 
     <rule ref="WordPress.WP.I18n">
         <properties>
-            <property name="text_domain" type="array" value="woocommerce-eu-tax-helper" />
+            <property name="text_domain" type="array">
+                <element value="woocommerce-eu-tax-helper" />
+            </property>
         </properties>
     </rule>
 
