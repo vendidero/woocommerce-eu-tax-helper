@@ -403,7 +403,7 @@ class Helper {
 	}
 
 	public static function is_admin_order_ajax_request() {
-		$order_actions = array( 'woocommerce_calc_line_taxes', 'woocommerce_save_order_items', 'add_coupon_discount', 'refund_line_items', 'delete_refund' );
+		$order_actions = array( 'woocommerce_calc_line_taxes', 'woocommerce_save_order_items', 'add_coupon_discount', 'refund_line_items', 'delete_refund', 'woocommerce_add_order_item' );
 
 		return isset( $_POST['action'], $_POST['order_id'] ) && ( strstr( wc_clean( wp_unslash( $_POST['action'] ) ), '_order_' ) || in_array( wc_clean( wp_unslash( $_POST['action'] ) ), $order_actions, true ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
 	}
